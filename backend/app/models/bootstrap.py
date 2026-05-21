@@ -14,4 +14,5 @@ class DataBootstrap(AppModel):
     f2_teams: list[Team]
     academies: list[Academy]
     tracks: list[Track]
+    f1_calendar: list[CalendarRound]
     f2_calendar: list[CalendarRound]

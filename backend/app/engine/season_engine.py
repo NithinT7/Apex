@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
+from app.data.loaders import get_f1_calendar, get_f2_calendar
 from app.models.save_game import (
     ChampionshipEntry,
     ChampionshipState,
@@ -445,7 +446,7 @@ def prepare_next_season(save: SaveGame) -> SaveGame:
     Prepare the save for the next season.
 
     - Increments season number
-    - Resets calendar
+    - Loads appropriate calendar based on player's series
     - Resets standings
     - Ages drivers
     - Updates to preseason phase
@@ -456,15 +457,27 @@ def prepare_next_season(save: SaveGame) -> SaveGame:
     # Increment season
     new_season = save.season + 1
 
-    # Reset calendar (mark all rounds as not completed)
+    # Determine player's series for next season
+    player = next((d for d in save.drivers if d.id == save.player_driver_id), None)
+    player_series = player.series if player else "F2"
+
+    # Load the appropriate calendar based on player's series
+    if player_series == "F1":
+        base_calendar = get_f1_calendar()
+    else:
+        base_calendar = get_f2_calendar()
+
     new_calendar = [
-        r.model_copy(update={"completed": False}) for r in save.calendar
+        r.model_copy(update={"completed": False}) for r in base_calendar
     ]
 
-    # Reset standings
+    # Get drivers for the relevant series
+    series_driver_ids = {d.id for d in save.drivers if d.series == player_series}
+
+    # Reset standings for the current series
     new_driver_standings = [
         ChampionshipEntry(
-            driver_id=entry.driver_id,
+            driver_id=driver_id,
             points=0,
             wins=0,
             podiums=0,
@@ -475,11 +488,15 @@ def prepare_next_season(save: SaveGame) -> SaveGame:
             average_qualifying=0,
             average_finish=0,
         )
-        for entry in save.standings.driver_standings
+        for driver_id in series_driver_ids
     ]
+
+    # Get teams for the current series
+    series_team_ids = {t.id for t in save.teams if t.series == player_series}
+
     new_standings = ChampionshipState(
         driver_standings=new_driver_standings,
-        team_standings={team_id: 0 for team_id in save.standings.team_standings},
+        team_standings={team_id: 0 for team_id in series_team_ids},
     )
 
     # Age drivers
@@ -491,7 +508,6 @@ def prepare_next_season(save: SaveGame) -> SaveGame:
     new_weekend_results = []
 
     # Update date to next season start
-    # Use the first round's start date
     new_date = new_calendar[0].start_date if new_calendar else save.current_date
 
     return save.model_copy(
@@ -536,16 +552,24 @@ def advance_to_next_season(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
         if player_contract:
             team = next((t for t in updated_save.teams if t.id == player_contract.team_id), None)
             team_name = team.name if team else "Unknown"
+            series_name = "F1" if player.series == "F1" else "F2"
+
+            if player.series == "F1":
+                headline = f"Your F1 Debut Season Begins"
+                body = f"The pinnacle of motorsport awaits. You'll be racing for {team_name} in Formula 1."
+            else:
+                headline = f"Season {updated_save.season} begins"
+                body = f"A new {series_name} season awaits. You'll be racing for {team_name}."
 
             news.append(
                 NewsItem(
                     id=f"preseason_start_{uuid.uuid4().hex[:8]}",
                     date=updated_save.current_date,
                     category="system",
-                    headline=f"Season {updated_save.season} begins",
-                    body=f"A new F2 season awaits. You'll be racing for {team_name}.",
+                    headline=headline,
+                    body=body,
                     linked_driver_ids=[player.id],
-                    importance=4,
+                    importance=5 if player.series == "F1" else 4,
                 )
             )
 

@@ -11,6 +11,6 @@ class CalendarRound(AppModel):
     start_date: str
     end_date: str
     country: str
-    series: Literal["F2"]
+    series: Literal["F1", "F2"]
     has_sprint: bool
     completed: bool = False

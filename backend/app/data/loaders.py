@@ -63,6 +63,11 @@ def get_f2_calendar() -> list[CalendarRound]:
 
 
 @lru_cache
+def get_f1_calendar() -> list[CalendarRound]:
+    return _load_list("calendar_f1_2026.json", CalendarRound)
+
+
+@lru_cache
 def get_driver_backgrounds() -> list[DriverBackground]:
     return _load_list("driver_backgrounds.json", DriverBackground)
 
@@ -80,6 +85,7 @@ def get_bootstrap() -> DataBootstrap:
         f2_teams=get_f2_teams(),
         academies=get_academies(),
         tracks=get_tracks(),
+        f1_calendar=get_f1_calendar(),
         f2_calendar=get_f2_calendar(),
     )
 
@@ -105,6 +111,10 @@ def validate_data_references() -> list[str]:
             errors.append(f"{academy.id} references missing F1 team {academy.f1_team_id}")
 
     for calendar_round in get_f2_calendar():
+        if calendar_round.track_id not in tracks:
+            errors.append(f"{calendar_round.id} references missing track {calendar_round.track_id}")
+
+    for calendar_round in get_f1_calendar():
         if calendar_round.track_id not in tracks:
             errors.append(f"{calendar_round.id} references missing track {calendar_round.track_id}")
 
