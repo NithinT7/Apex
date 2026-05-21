@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CareerDashboardClient } from "@/components/CareerDashboardClient";
 
 export default function HomePage() {
   return (
@@ -57,6 +58,9 @@ export default function HomePage() {
       >
         Race Weekend
       </Link>
+      <div style={{ marginTop: 36 }}>
+        <CareerDashboardClient />
+      </div>
     </main>
   );
 }

@@ -253,16 +253,23 @@ select {
   width: 100%;
 }
 
-.timing-table td {
+.timing-table td,
+.timing-table th {
   border-top: 1px solid var(--border);
   padding: 10px 6px;
+  text-align: left;
 }
 
 .timing-table td:first-child,
-.timing-table td:last-child {
+.timing-table td:last-child,
+.timing-table th {
   color: var(--text);
   font-weight: 800;
   white-space: nowrap;
+}
+
+.standings-table {
+  min-width: 680px;
 }
 
 .prompt-list {
@@ -310,6 +317,49 @@ select {
 .lap-feed span {
   color: var(--muted);
   line-height: 1.45;
+}
+
+.dashboard-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.secondary-button,
+.inline-action {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: inline-flex;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+}
+
+.inline-action {
+  margin-top: 16px;
+}
+
+.news-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.news-stack div {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 4px;
+  padding-top: 10px;
+}
+
+.news-stack span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.news-feed {
+  display: grid;
+  gap: 14px;
 }
 
 .spin {
