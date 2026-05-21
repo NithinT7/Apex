@@ -179,6 +179,91 @@ export type Contract = {
   active: boolean;
 };
 
+export type WeatherState = {
+  condition: "dry" | "damp" | "wet";
+  airTemp: number;
+  trackTemp: number;
+  rainIntensity: number;
+};
+
+export type PracticeClassification = {
+  position: number;
+  driverId: string;
+  lapTime: number;
+  setupScore: number;
+  note: string;
+};
+
+export type QualifyingClassification = {
+  position: number;
+  driverId: string;
+  lapTime: number;
+  gapToPole: number;
+  note: string;
+};
+
+export type RunningOrderEntry = {
+  position: number;
+  driverId: string;
+  gapToLeader: number;
+  gapToCarAhead: number;
+  tireCompound: "soft" | "medium" | "hard" | "inter" | "wet";
+  tireAge: number;
+  tireWear: number;
+  status: "running" | "dnf";
+};
+
+export type LapSnapshot = {
+  lap: number;
+  runningOrder: RunningOrderEntry[];
+  commentary: string[];
+  safetyCar: boolean;
+  weather: WeatherState;
+};
+
+export type RaceClassification = {
+  position: number;
+  driverId: string;
+  status: "running" | "dnf";
+  totalTime: number;
+  gapToWinner: number;
+  points: number;
+  pitStops: number;
+  fastestLap: number;
+};
+
+export type RaceResult = {
+  raceId: string;
+  sessionType: "sprint" | "feature";
+  trackId: string;
+  totalLaps: number;
+  startingGrid: string[];
+  classification: RaceClassification[];
+  lapLog: LapSnapshot[];
+  safetyCarLaps: number[];
+  dnfs: string[];
+};
+
+export type WeekendResult = {
+  saveId: string;
+  roundId: string;
+  trackId: string;
+  completed: boolean;
+  practice: {
+    trackId: string;
+    weather: WeatherState;
+    classification: PracticeClassification[];
+  };
+  qualifying: {
+    trackId: string;
+    weather: WeatherState;
+    classification: QualifyingClassification[];
+  };
+  sprint: RaceResult;
+  feature: RaceResult;
+  headline: string;
+};
+
 export type SaveGame = {
   saveId: string;
   name: string;
@@ -197,6 +282,7 @@ export type SaveGame = {
   news: NewsItem[];
   rivalries: Rivalry[];
   contracts: Contract[];
+  weekendResults: WeekendResult[];
   randomSeed: number;
   eventFlags: Record<string, boolean>;
 };

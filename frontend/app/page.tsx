@@ -42,6 +42,21 @@ export default function HomePage() {
       >
         Save / Load
       </Link>
+      <Link
+        href="/race-weekend"
+        style={{
+          display: "inline-block",
+          marginTop: 28,
+          marginLeft: 12,
+          borderRadius: 6,
+          border: "1px solid var(--border)",
+          color: "var(--text)",
+          fontWeight: 700,
+          padding: "12px 18px",
+        }}
+      >
+        Race Weekend
+      </Link>
     </main>
   );
 }

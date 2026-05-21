@@ -7,6 +7,7 @@ import type {
   HealthResponse,
   SaveGame,
   SaveSummary,
+  WeekendResult,
   Team,
 } from "./types";
 
@@ -96,4 +97,20 @@ export async function createCareer(payload: CreateCareerPayload): Promise<SaveGa
   }
 
   return response.json();
+}
+
+export async function simulateWeekend(saveId: string, roundId: string): Promise<SaveGame> {
+  const response = await fetch(`${API_BASE_URL}/career/${saveId}/weekend/${roundId}/simulate`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed for weekend simulation: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function getWeekend(saveId: string, roundId: string): Promise<WeekendResult> {
+  return getJson<WeekendResult>(`/career/${saveId}/weekend/${roundId}`);
 }

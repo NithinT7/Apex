@@ -44,3 +44,12 @@ Phase 2 save-game foundation is implemented:
   - `GET /saves`
   - `GET /saves/{save_id}`
   - `DELETE /saves/{save_id}`
+
+Phase 4 basic weekend simulation is implemented:
+
+- Full F2 weekend simulation for a save and calendar round.
+- Practice, qualifying, sprint race, feature race, race classifications, lap
+  logs, weather, tire wear, safety cars, DNFs, points, standings, and news.
+- FastAPI weekend endpoints:
+  - `POST /career/{save_id}/weekend/{round_id}/simulate`
+  - `GET /career/{save_id}/weekend/{round_id}`
