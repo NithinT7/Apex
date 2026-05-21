@@ -116,3 +116,50 @@ class WeekendResult(AppModel):
     sprint: RaceResult
     feature: RaceResult
     headline: str
+
+
+# Interactive race models for player decisions
+
+
+class DecisionOutcome(AppModel):
+    """Result of a player's decision."""
+
+    decision_id: str
+    choice_id: str
+    choice_label: str
+    pace_modifier: float
+    tire_wear_modifier: float
+    incident_risk_modifier: float
+    narrative: str
+
+
+class PendingDecision(AppModel):
+    """A decision awaiting player input."""
+
+    prompt: DecisionPrompt
+    race_type: Literal["sprint", "feature"]
+    expires_at_lap: int
+
+
+class DecisionResponse(AppModel):
+    """Player's response to a decision prompt."""
+
+    decision_id: str
+    choice_index: int  # 0, 1, or 2
+
+
+class ActiveRaceState(AppModel):
+    """State for a race in progress with interactive decisions."""
+
+    save_id: str
+    round_id: str
+    race_type: Literal["sprint", "feature"]
+    current_lap: int
+    total_laps: int
+    lap_snapshots: list[LapSnapshot]
+    pending_decision: PendingDecision | None = None
+    decision_history: list[DecisionOutcome]
+    is_complete: bool
+    player_position: int | None = None
+    player_tire_wear: float = 0
+    safety_car_active: bool = False

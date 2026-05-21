@@ -357,3 +357,57 @@ export type CreateCareerPayload = {
   academyId: string;
   difficulty: "casual" | "realistic" | "brutal";
 };
+
+// Interactive race decision types
+
+export type DecisionOutcome = {
+  decisionId: string;
+  choiceId: string;
+  choiceLabel: string;
+  paceModifier: number;
+  tireWearModifier: number;
+  incidentRiskModifier: number;
+  narrative: string;
+};
+
+export type PendingDecision = {
+  prompt: DecisionPrompt;
+  raceType: "sprint" | "feature";
+  expiresAtLap: number;
+};
+
+export type DecisionResponse = {
+  decisionId: string;
+  choiceIndex: number;
+};
+
+export type ActiveRaceState = {
+  saveId: string;
+  roundId: string;
+  raceType: "sprint" | "feature";
+  currentLap: number;
+  totalLaps: number;
+  lapSnapshots: LapSnapshot[];
+  pendingDecision: PendingDecision | null;
+  decisionHistory: DecisionOutcome[];
+  isComplete: boolean;
+  playerPosition: number | null;
+  playerTireWear: number;
+  safetyCarActive: boolean;
+};
+
+export type WeekendPrep = {
+  roundId: string;
+  practice: {
+    trackId: string;
+    weather: WeatherState;
+    classification: PracticeClassification[];
+  };
+  qualifying: {
+    trackId: string;
+    weather: WeatherState;
+    classification: QualifyingClassification[];
+  };
+  sprintGrid: string[];
+  featureGrid: string[];
+};

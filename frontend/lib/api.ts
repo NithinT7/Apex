@@ -1,12 +1,16 @@
 import type {
   Academy,
+  ActiveRaceState,
   CalendarRound,
   CareerCreationOptions,
   CreateCareerPayload,
   DataBootstrap,
+  DecisionResponse,
   HealthResponse,
+  RaceResult,
   SaveGame,
   SaveSummary,
+  WeekendPrep,
   WeekendResult,
   Team,
 } from "./types";
@@ -125,4 +129,130 @@ export async function simulateNextWeekend(saveId: string): Promise<SaveGame> {
 
 export async function getWeekend(saveId: string, roundId: string): Promise<WeekendResult> {
   return getJson<WeekendResult>(`/career/${saveId}/weekend/${roundId}`);
+}
+
+// Interactive race decision endpoints
+
+export async function prepareWeekend(saveId: string, roundId: string): Promise<WeekendPrep> {
+  const response = await fetch(`${API_BASE_URL}/career/${saveId}/race/${roundId}/prepare`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed for weekend prep: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function startRace(
+  saveId: string,
+  roundId: string,
+  raceType: "sprint" | "feature"
+): Promise<ActiveRaceState> {
+  const response = await fetch(
+    `${API_BASE_URL}/career/${saveId}/race/${roundId}/${raceType}/start`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API request failed for race start: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function simulateToDecision(
+  saveId: string,
+  roundId: string,
+  raceType: "sprint" | "feature"
+): Promise<ActiveRaceState> {
+  const response = await fetch(
+    `${API_BASE_URL}/career/${saveId}/race/${roundId}/${raceType}/simulate`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API request failed for race simulation: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function submitDecision(
+  saveId: string,
+  roundId: string,
+  raceType: "sprint" | "feature",
+  decision: DecisionResponse
+): Promise<ActiveRaceState> {
+  const response = await fetch(
+    `${API_BASE_URL}/career/${saveId}/race/${roundId}/${raceType}/decide`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(decision),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API request failed for decision submission: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function autoCompleteRace(
+  saveId: string,
+  roundId: string,
+  raceType: "sprint" | "feature"
+): Promise<RaceResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/career/${saveId}/race/${roundId}/${raceType}/auto-complete`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API request failed for race auto-complete: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function completeRace(
+  saveId: string,
+  roundId: string,
+  raceType: "sprint" | "feature"
+): Promise<RaceResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/career/${saveId}/race/${roundId}/${raceType}/complete`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API request failed for race completion: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function finalizeWeekend(
+  saveId: string,
+  roundId: string,
+  sprint: RaceResult,
+  feature: RaceResult
+): Promise<SaveGame> {
+  const response = await fetch(
+    `${API_BASE_URL}/career/${saveId}/race/${roundId}/finalize`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sprint, feature }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API request failed for weekend finalization: ${response.status}`);
+  }
+
+  return response.json();
 }

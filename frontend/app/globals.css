@@ -388,6 +388,241 @@ select {
   }
 }
 
+/* Decision Modal */
+.decision-modal-overlay {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 100;
+}
+
+.decision-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: grid;
+  gap: 20px;
+  max-height: 90vh;
+  max-width: 540px;
+  overflow-y: auto;
+  padding: 24px;
+  width: 100%;
+}
+
+.decision-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.decision-type {
+  align-items: center;
+  background: var(--surface-strong);
+  border-radius: 6px;
+  color: var(--accent-strong);
+  display: flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.decision-lap {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.decision-content h2 {
+  font-size: 22px;
+  line-height: 1.25;
+  margin: 0 0 8px;
+}
+
+.decision-content p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.decision-choices {
+  display: grid;
+  gap: 10px;
+}
+
+.choice-card {
+  background: var(--surface-strong);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  text-align: left;
+  transition: border-color 150ms;
+}
+
+.choice-card:hover {
+  border-color: var(--muted);
+}
+
+.choice-card.selected {
+  border-color: var(--accent);
+}
+
+.choice-header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.choice-label {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.choice-default {
+  align-items: center;
+  background: var(--surface);
+  border-radius: 4px;
+  color: var(--muted);
+  display: flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 4px;
+  padding: 4px 8px;
+}
+
+.choice-meta {
+  display: flex;
+  gap: 10px;
+}
+
+.choice-risk {
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.risk-low {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.risk-medium {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+}
+
+.risk-high {
+  background: rgba(249, 115, 22, 0.15);
+  color: #fb923c;
+}
+
+.risk-extreme {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.decision-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.decision-footer .primary-button,
+.decision-footer .secondary-button {
+  margin-top: 0;
+  width: auto;
+}
+
+/* Interactive Race Viewer */
+.race-viewer {
+  display: grid;
+  gap: 16px;
+}
+
+.race-status-bar {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.race-progress {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.race-progress strong {
+  font-size: 18px;
+}
+
+.race-progress span {
+  color: var(--muted);
+}
+
+.running-order {
+  display: grid;
+  gap: 6px;
+}
+
+.running-order-row {
+  align-items: center;
+  background: var(--surface-strong);
+  border-radius: 6px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 40px 1fr 80px 100px 60px;
+  padding: 10px 14px;
+}
+
+.running-order-row.player {
+  border: 2px solid var(--accent);
+}
+
+.running-order-row .position {
+  font-weight: 800;
+}
+
+.running-order-row .gap {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.running-order-row .tire {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tire-soft { color: #ef4444; }
+.tire-medium { color: #eab308; }
+.tire-hard { color: #f5f5f5; }
+.tire-inter { color: #22c55e; }
+.tire-wet { color: #3b82f6; }
+
+.commentary-feed {
+  display: grid;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.commentary-line {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 @media (max-width: 760px) {
   .creation-grid {
     grid-template-columns: 1fr;
@@ -400,5 +635,23 @@ select {
   .compact-action-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .decision-footer {
+    flex-direction: column;
+  }
+
+  .decision-footer .primary-button,
+  .decision-footer .secondary-button {
+    width: 100%;
+  }
+
+  .running-order-row {
+    grid-template-columns: 35px 1fr 60px;
+  }
+
+  .running-order-row .gap,
+  .running-order-row .tire {
+    display: none;
   }
 }

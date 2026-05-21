@@ -7,7 +7,7 @@ from app.models.academy import Academy
 from app.models.base import AppModel
 from app.models.calendar import CalendarRound
 from app.models.driver import Driver
-from app.models.race import WeekendResult
+from app.models.race import ActiveRaceState, WeekendResult
 from app.models.team import Team
 
 
@@ -92,6 +92,7 @@ class SaveGame(AppModel):
     weekend_results: list[WeekendResult] = Field(default_factory=list)
     random_seed: int
     event_flags: dict[str, bool] = Field(default_factory=dict)
+    active_race: ActiveRaceState | None = None
 
 
 class SaveSummary(AppModel):
