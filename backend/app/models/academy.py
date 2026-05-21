@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from app.models.base import AppModel
 
@@ -20,7 +20,7 @@ class Academy(AppModel):
     id: str
     name: str
     style: AcademyStyle
-    f1_team_id: str | None
+    f1_team_id: Optional[str]
     support_level: int
     pressure: int
     patience: int

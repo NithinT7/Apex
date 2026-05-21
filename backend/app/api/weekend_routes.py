@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
+from app.engine.academy_engine import apply_race_trust_change, check_season_milestone
 from app.engine.standings_engine import apply_race_points
 from app.engine.weekend_engine import simulate_weekend
 from app.models.race import WeekendResult
@@ -66,7 +67,26 @@ def _simulate_and_save(save: SaveGame, round_id: str) -> SaveGame:
     standings = standings.model_copy(update={"team_standings": _team_standings(save, standings)})
     completed_round = next(calendar_round for calendar_round in save.calendar if calendar_round.id == round_id)
 
-    updated = save.model_copy(
+    # Apply academy trust changes
+    news_items: list[NewsItem] = []
+    updated_save = save.model_copy(update={"standings": standings})
+
+    # Sprint race trust change (weight less than feature)
+    updated_save, sprint_news = apply_race_trust_change(updated_save, weekend.sprint, is_feature=False)
+    if sprint_news:
+        news_items.append(sprint_news)
+
+    # Feature race trust change
+    updated_save, feature_news = apply_race_trust_change(updated_save, weekend.feature, is_feature=True)
+    if feature_news:
+        news_items.append(feature_news)
+
+    # Check for season milestones (every ~4 rounds)
+    completed_rounds = sum(1 for r in save.calendar if r.completed) + 1  # +1 for this round
+    updated_save, milestone_news = check_season_milestone(updated_save, completed_rounds)
+    news_items.extend(milestone_news)
+
+    updated = updated_save.model_copy(
         update={
             "phase": "between_races",
             "current_date": completed_round.end_date,
@@ -76,10 +96,9 @@ def _simulate_and_save(save: SaveGame, round_id: str) -> SaveGame:
                 else calendar_round
                 for calendar_round in save.calendar
             ],
-            "standings": standings,
             "weekend_results": [*save.weekend_results, weekend],
             "news": [
-                *save.news,
+                *updated_save.news,
                 NewsItem(
                     id=f"{round_id}_feature_headline",
                     date=completed_round.end_date,
@@ -89,6 +108,7 @@ def _simulate_and_save(save: SaveGame, round_id: str) -> SaveGame:
                     linked_driver_ids=[save.player_driver_id] if save.player_driver_id else [],
                     importance=4,
                 ),
+                *news_items,
             ],
         }
     )

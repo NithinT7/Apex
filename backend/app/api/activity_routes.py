@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.engine.academy_engine import get_academy_status
 from app.engine.activity_engine import (
     advance_to_race_week,
     get_available_activities,
@@ -71,6 +72,25 @@ def get_activity_status(save_id: str) -> dict:
         "days_until_race": available.days_until_next_race,
         "phase": save.phase,
     }
+
+
+@router.get("/academy")
+def get_academy(save_id: str) -> dict:
+    """
+    Get comprehensive academy status for the player.
+
+    Returns trust info, expectations, warnings, and F1 pathway status.
+    """
+    save = _get_save(save_id)
+
+    academy_status = get_academy_status(save)
+    if academy_status is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player has no academy affiliation",
+        )
+
+    return academy_status
 
 
 @router.post("/skip", response_model=SaveGame)

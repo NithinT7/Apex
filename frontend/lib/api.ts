@@ -298,3 +298,23 @@ export async function skipToRaceWeek(saveId: string): Promise<SaveGame> {
 export async function getPlayerStatus(saveId: string): Promise<PlayerStatus> {
   return getJson<PlayerStatus>(`/career/${saveId}/activities/status`);
 }
+
+export async function getAcademyStatus(saveId: string): Promise<AcademyStatus> {
+  return getJson<AcademyStatus>(`/career/${saveId}/activities/academy`);
+}
+
+export type AcademyStatus = {
+  academyName: string;
+  academyStyle?: string;
+  trust: number | null;
+  trustLevel: string | null;
+  expectedPosition: number | null;
+  seatSecurity: string;
+  f1Pathway: string;
+  f1Team?: string;
+  warnings: string[];
+  opportunities: string[];
+  pressure?: number;
+  patience?: number;
+  supportLevel?: number;
+};

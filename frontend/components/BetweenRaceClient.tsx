@@ -3,12 +3,14 @@
 import { Calendar, FastForward, Loader2, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+  getAcademyStatus,
   getAvailableActivities,
   getPlayerStatus,
   getSave,
   getSaves,
   performActivity,
   skipToRaceWeek,
+  type AcademyStatus,
 } from "@/lib/api";
 import type {
   Activity,
@@ -29,6 +31,7 @@ export function BetweenRaceClient() {
   // Activity state
   const [activities, setActivities] = useState<AvailableActivities | null>(null);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus | null>(null);
+  const [academyStatus, setAcademyStatus] = useState<AcademyStatus | null>(null);
   const [lastOutcome, setLastOutcome] = useState<ActivityOutcome | null>(null);
   const [performing, setPerforming] = useState(false);
 
@@ -57,15 +60,18 @@ export function BetweenRaceClient() {
       setLastOutcome(null);
 
       if (loadedSave.phase === "between_races") {
-        const [acts, status] = await Promise.all([
+        const [acts, status, academy] = await Promise.all([
           getAvailableActivities(saveId),
           getPlayerStatus(saveId),
+          getAcademyStatus(saveId).catch(() => null),
         ]);
         setActivities(acts);
         setPlayerStatus(status);
+        setAcademyStatus(academy);
       } else {
         setActivities(null);
         setPlayerStatus(null);
+        setAcademyStatus(null);
       }
     } catch {
       setError("Could not load save data.");
@@ -179,18 +185,17 @@ export function BetweenRaceClient() {
                   <dt>Days to Race</dt>
                   <dd>{playerStatus.daysUntilRace}</dd>
                 </div>
-                {playerStatus.academyTrust !== null && (
-                  <div>
-                    <dt>Academy Trust</dt>
-                    <dd>{playerStatus.academyTrust}%</dd>
-                  </div>
-                )}
                 <div>
                   <dt>Reputation</dt>
                   <dd>{playerStatus.reputation}</dd>
                 </div>
               </dl>
             </section>
+          )}
+
+          {/* Academy Status */}
+          {academyStatus && academyStatus.trust !== null && (
+            <AcademyStatusPanel academyStatus={academyStatus} />
           )}
 
           {/* Last Activity Outcome */}
@@ -252,6 +257,87 @@ export function BetweenRaceClient() {
             )}
           </section>
         </>
+      )}
+    </section>
+  );
+}
+
+function AcademyStatusPanel({ academyStatus }: { academyStatus: AcademyStatus }) {
+  const getTrustColor = (level: string | null) => {
+    switch (level) {
+      case "excellent": return "#22c55e";
+      case "good": return "#84cc16";
+      case "neutral": return "#eab308";
+      case "warning": return "#f97316";
+      case "critical": return "#ef4444";
+      default: return "var(--muted)";
+    }
+  };
+
+  const getSeatSecurityText = (security: string) => {
+    switch (security) {
+      case "strong": return "Secure";
+      case "stable": return "Stable";
+      case "uncertain": return "Uncertain";
+      case "at_risk": return "At Risk";
+      default: return security;
+    }
+  };
+
+  const getF1PathwayText = (pathway: string) => {
+    switch (pathway) {
+      case "promising": return "Promising";
+      case "possible": return "Possible";
+      case "needs_work": return "Needs Work";
+      case "unlikely": return "Unlikely";
+      case "none": return "No F1 Link";
+      case "open": return "Open Market";
+      default: return pathway;
+    }
+  };
+
+  return (
+    <section className="panel" style={{ borderLeftColor: getTrustColor(academyStatus.trustLevel), borderLeftWidth: 3 }}>
+      <h2>{academyStatus.academyName}</h2>
+      <dl className="stat-grid">
+        <div>
+          <dt>Trust</dt>
+          <dd style={{ color: getTrustColor(academyStatus.trustLevel) }}>
+            {academyStatus.trust}% ({academyStatus.trustLevel})
+          </dd>
+        </div>
+        <div>
+          <dt>Expected Position</dt>
+          <dd>P{academyStatus.expectedPosition} or better</dd>
+        </div>
+        <div>
+          <dt>Seat Security</dt>
+          <dd style={{ color: academyStatus.seatSecurity === "at_risk" ? "#ef4444" : undefined }}>
+            {getSeatSecurityText(academyStatus.seatSecurity)}
+          </dd>
+        </div>
+        <div>
+          <dt>F1 Pathway</dt>
+          <dd>{getF1PathwayText(academyStatus.f1Pathway)}</dd>
+        </div>
+      </dl>
+      {academyStatus.warnings.length > 0 && (
+        <div className="academy-warnings">
+          {academyStatus.warnings.map((warning, i) => (
+            <p key={i} className="error-text" style={{ margin: "4px 0" }}>
+              ⚠ {warning}
+            </p>
+          ))}
+        </div>
+      )}
+      {academyStatus.opportunities.length > 0 && (
+        <div className="academy-opportunities">
+          {academyStatus.opportunities.map((opportunity, i) => (
+            <p key={i} style={{ margin: "4px 0", color: "#22c55e" }}>
+              ✓ {opportunity}
+            </p>
+          ))}
+        </div>
       )}
     </section>
   );

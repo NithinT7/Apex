@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, HTTPException, Response, status
 
 from app.models.save_game import CreateSaveRequest, SaveGame, SaveSummary

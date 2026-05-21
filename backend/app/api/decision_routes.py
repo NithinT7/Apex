@@ -2,6 +2,10 @@
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.engine.academy_engine import (
+    apply_race_trust_change,
+    check_season_milestone,
+)
 from app.engine.decision_engine import (
     auto_complete_race,
     clear_internal_state,
@@ -245,19 +249,37 @@ def finalize_weekend(save_id: str, round_id: str, sprint: RaceResult, feature: R
     standings = apply_race_points(standings, feature)
     standings = standings.model_copy(update={"team_standings": _team_standings(save, standings)})
 
-    # Update save
-    updated = save.model_copy(
+    # Apply academy trust changes for both races
+    news_items: list[NewsItem] = []
+    updated_save = save.model_copy(update={"standings": standings})
+
+    # Sprint race trust change (weight less than feature)
+    updated_save, sprint_news = apply_race_trust_change(updated_save, sprint, is_feature=False)
+    if sprint_news:
+        news_items.append(sprint_news)
+
+    # Feature race trust change
+    updated_save, feature_news = apply_race_trust_change(updated_save, feature, is_feature=True)
+    if feature_news:
+        news_items.append(feature_news)
+
+    # Check for season milestones (every ~4 rounds)
+    completed_rounds = sum(1 for r in save.calendar if r.completed) + 1  # +1 for this round
+    updated_save, milestone_news = check_season_milestone(updated_save, completed_rounds)
+    news_items.extend(milestone_news)
+
+    # Update save (use updated_save which has academy_states changes)
+    updated = updated_save.model_copy(
         update={
             "phase": "between_races",
             "current_date": calendar_round.end_date,
             "calendar": [
                 r.model_copy(update={"completed": True}) if r.id == round_id else r for r in save.calendar
             ],
-            "standings": standings,
             "weekend_results": [*save.weekend_results, weekend],
             "active_race": None,
             "news": [
-                *save.news,
+                *updated_save.news,
                 NewsItem(
                     id=f"{round_id}_feature_headline",
                     date=calendar_round.end_date,
@@ -267,6 +289,7 @@ def finalize_weekend(save_id: str, round_id: str, sprint: RaceResult, feature: R
                     linked_driver_ids=[save.player_driver_id] if save.player_driver_id else [],
                     importance=4,
                 ),
+                *news_items,
             ],
         }
     )
