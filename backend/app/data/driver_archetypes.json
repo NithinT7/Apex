@@ -1,0 +1,44 @@
+[
+  {
+    "id": "smooth_operator",
+    "name": "Smooth Operator",
+    "description": "Strong over long races with low tire wear and fewer mistakes.",
+    "attributeEffects": {"tireManagement": 7, "consistency": 5, "focus": 4, "aggression": -4},
+    "hiddenEffects": {"crashProneness": -5}
+  },
+  {
+    "id": "one_lap_monster",
+    "name": "One-Lap Monster",
+    "description": "Qualifying specialist who can put the car higher than expected.",
+    "attributeEffects": {"qualifying": 8, "pace": 4, "tireManagement": -3, "consistency": -2},
+    "hiddenEffects": {"clutchFactor": 3}
+  },
+  {
+    "id": "wheel_to_wheel_fighter",
+    "name": "Wheel-to-Wheel Fighter",
+    "description": "Aggressive in combat and popular with fans, with higher incident risk.",
+    "attributeEffects": {"racecraft": 7, "aggression": 6, "starts": 3, "marketability": 3, "discipline": -4},
+    "hiddenEffects": {"crashProneness": 6}
+  },
+  {
+    "id": "rain_specialist",
+    "name": "Rain Specialist",
+    "description": "Can steal big results when weather disrupts the field.",
+    "attributeEffects": {"wetWeather": 8, "adaptability": 4, "pace": -1},
+    "hiddenEffects": {"clutchFactor": 5}
+  },
+  {
+    "id": "technical_developer",
+    "name": "Technical Developer",
+    "description": "Improves setup direction and becomes valuable to academies.",
+    "attributeEffects": {"technicalFeedback": 8, "adaptability": 4, "teamRelationship": 3},
+    "hiddenEffects": {"developmentRate": 5}
+  },
+  {
+    "id": "high_risk_prodigy",
+    "name": "High-Risk Prodigy",
+    "description": "Huge upside and speed, with volatile race execution.",
+    "attributeEffects": {"pace": 7, "qualifying": 5, "aggression": 5, "consistency": -5, "discipline": -4},
+    "hiddenEffects": {"potential": 7, "crashProneness": 8}
+  }
+]

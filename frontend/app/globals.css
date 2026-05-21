@@ -34,6 +34,15 @@ select {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .page-shell {
   margin: 0 auto;
   max-width: 1120px;
@@ -85,4 +94,137 @@ select {
   line-height: 1.8;
   margin: 0;
   padding-left: 20px;
+}
+
+.creation-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 28px;
+}
+
+.form-panel label,
+.option-card {
+  display: grid;
+  gap: 8px;
+}
+
+.form-panel label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 14px;
+}
+
+input,
+select {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  min-height: 42px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.field-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.option-panel {
+  align-content: start;
+  display: grid;
+  gap: 10px;
+}
+
+.option-card {
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  grid-template-columns: 18px 1fr;
+  padding: 12px;
+}
+
+.option-card input {
+  margin: 3px 0 0;
+  min-height: auto;
+  width: auto;
+}
+
+.option-card small {
+  color: var(--muted);
+  display: block;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.stat-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin: 16px 0 0;
+}
+
+.stat-grid div {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.stat-grid dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.stat-grid dd {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.primary-button {
+  align-items: center;
+  background: var(--accent);
+  border: 0;
+  border-radius: 6px;
+  color: white;
+  display: inline-flex;
+  font-weight: 800;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 20px;
+  min-height: 44px;
+  padding: 0 16px;
+  width: 100%;
+}
+
+.error-text {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.success-panel {
+  margin-top: 28px;
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 760px) {
+  .creation-grid {
+    grid-template-columns: 1fr;
+  }
 }

@@ -1,6 +1,8 @@
 import type {
   Academy,
   CalendarRound,
+  CareerCreationOptions,
+  CreateCareerPayload,
   DataBootstrap,
   HealthResponse,
   SaveGame,
@@ -74,4 +76,24 @@ export async function deleteSave(saveId: string): Promise<void> {
   if (!response.ok) {
     throw new Error(`API request failed for /saves/${saveId}: ${response.status}`);
   }
+}
+
+export async function getCareerCreationOptions(): Promise<CareerCreationOptions> {
+  return getJson<CareerCreationOptions>("/career/new/options");
+}
+
+export async function createCareer(payload: CreateCareerPayload): Promise<SaveGame> {
+  const response = await fetch(`${API_BASE_URL}/career/new`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed for /career/new: ${response.status}`);
+  }
+
+  return response.json();
 }

@@ -9,6 +9,7 @@ from app.models.academy import Academy
 from app.models.bootstrap import DataBootstrap
 from app.models.calendar import CalendarRound
 from app.models.driver import Driver
+from app.models.player_creation import DriverArchetype, DriverBackground
 from app.models.team import Team
 from app.models.track import Track
 
@@ -59,6 +60,16 @@ def get_tracks() -> list[Track]:
 @lru_cache
 def get_f2_calendar() -> list[CalendarRound]:
     return _load_list("calendar_f2_2026.json", CalendarRound)
+
+
+@lru_cache
+def get_driver_backgrounds() -> list[DriverBackground]:
+    return _load_list("driver_backgrounds.json", DriverBackground)
+
+
+@lru_cache
+def get_driver_archetypes() -> list[DriverArchetype]:
+    return _load_list("driver_archetypes.json", DriverArchetype)
 
 
 def get_bootstrap() -> DataBootstrap:

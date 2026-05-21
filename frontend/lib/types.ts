@@ -209,3 +209,38 @@ export type SaveSummary = {
   phase: CareerPhase;
   playerDriverId: string | null;
 };
+
+export type DriverBackground = {
+  id: string;
+  name: string;
+  description: string;
+  attributeEffects: Record<string, number>;
+  hiddenEffects: Record<string, number>;
+};
+
+export type DriverArchetype = {
+  id: string;
+  name: string;
+  description: string;
+  attributeEffects: Record<string, number>;
+  hiddenEffects: Record<string, number>;
+};
+
+export type CareerCreationOptions = {
+  backgrounds: DriverBackground[];
+  archetypes: DriverArchetype[];
+  f2Teams: Team[];
+  academies: Academy[];
+};
+
+export type CreateCareerPayload = {
+  name: string;
+  nationality: string;
+  age: number;
+  driverNumber: number;
+  backgroundId: string;
+  archetypeId: string;
+  teamId: string;
+  academyId: string;
+  difficulty: "casual" | "realistic" | "brutal";
+};

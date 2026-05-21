@@ -1,0 +1,44 @@
+[
+  {
+    "id": "karting_prodigy",
+    "name": "Karting Prodigy",
+    "description": "High raw pace and early hype, but less polished with media.",
+    "attributeEffects": {"pace": 5, "racecraft": 4, "reputation": 3, "marketability": -2},
+    "hiddenEffects": {"potential": 3, "developmentRate": 2}
+  },
+  {
+    "id": "wealthy_backed_driver",
+    "name": "Wealthy Backed Driver",
+    "description": "Strong sponsor value and easier seat access, with more scrutiny.",
+    "attributeEffects": {"sponsorValue": 12, "marketability": 4, "pressure": -2, "reputation": -2},
+    "hiddenEffects": {"loyalty": -2}
+  },
+  {
+    "id": "late_bloomer",
+    "name": "Late Bloomer",
+    "description": "Lower starting pace but stronger mentality and long-term growth.",
+    "attributeEffects": {"pace": -3, "pressure": 4, "composure": 5, "focus": 4},
+    "hiddenEffects": {"developmentRate": 6, "potential": 2}
+  },
+  {
+    "id": "technical_driver",
+    "name": "Technical Driver",
+    "description": "Excellent feedback and tire understanding with calmer racecraft.",
+    "attributeEffects": {"technicalFeedback": 7, "tireManagement": 5, "discipline": 3, "aggression": -3},
+    "hiddenEffects": {"developmentRate": 3}
+  },
+  {
+    "id": "street_circuit_specialist",
+    "name": "Street Circuit Specialist",
+    "description": "Fearless around walls, quick on low-grip layouts, and volatile in traffic.",
+    "attributeEffects": {"adaptability": 4, "qualifying": 3, "aggression": 4, "awareness": -2},
+    "hiddenEffects": {"clutchFactor": 4, "crashProneness": 5}
+  },
+  {
+    "id": "rain_master",
+    "name": "Rain Master",
+    "description": "Dangerous in mixed conditions but less consistent over one lap in the dry.",
+    "attributeEffects": {"wetWeather": 9, "adaptability": 3, "qualifying": -2, "consistency": -1},
+    "hiddenEffects": {"clutchFactor": 4}
+  }
+]
