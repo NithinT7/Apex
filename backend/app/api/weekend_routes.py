@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.engine.academy_engine import apply_race_trust_change, check_season_milestone
 from app.engine.rivalry_engine import process_race_rivalries
+from app.engine.season_engine import is_season_complete, transition_to_offseason
 from app.engine.standings_engine import apply_race_points
 from app.engine.weekend_engine import simulate_weekend
 from app.models.race import WeekendResult
@@ -91,16 +92,19 @@ def _simulate_and_save(save: SaveGame, round_id: str) -> SaveGame:
     updated_save, rivalry_news = process_race_rivalries(updated_save, weekend.feature)
     news_items.extend(rivalry_news)
 
+    # Update calendar with this round marked as complete
+    updated_calendar = [
+        calendar_round.model_copy(update={"completed": True})
+        if calendar_round.id == round_id
+        else calendar_round
+        for calendar_round in save.calendar
+    ]
+
     updated = updated_save.model_copy(
         update={
             "phase": "between_races",
             "current_date": completed_round.end_date,
-            "calendar": [
-                calendar_round.model_copy(update={"completed": True})
-                if calendar_round.id == round_id
-                else calendar_round
-                for calendar_round in save.calendar
-            ],
+            "calendar": updated_calendar,
             "weekend_results": [*save.weekend_results, weekend],
             "news": [
                 *updated_save.news,
@@ -117,6 +121,11 @@ def _simulate_and_save(save: SaveGame, round_id: str) -> SaveGame:
             ],
         }
     )
+
+    # Check if season is complete and transition to offseason
+    if is_season_complete(updated):
+        updated, season_news = transition_to_offseason(updated)
+
     return manager.save(updated)
 
 

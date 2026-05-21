@@ -342,3 +342,74 @@ export type RivalryStatusResponse = {
   mostIntenseId: string | null;
   teammateRivalryId: string | null;
 };
+
+// Season endpoints
+
+export type SeasonStatus = {
+  season: number;
+  phase: string;
+  totalRounds: number;
+  completedRounds: number;
+  remainingRounds: number;
+  isSeasonComplete: boolean;
+  nextRound: { id: string; name: string; roundNumber: number } | null;
+};
+
+export type PlayerSeasonSummary = {
+  driverId: string;
+  driverName: string;
+  championshipPosition: number;
+  points: number;
+  wins: number;
+  podiums: number;
+  poles: number;
+  fastestLaps: number;
+  dnfs: number;
+  totalRaces: number;
+  pointsFinishes: number;
+  rating: string;
+  headline: string;
+};
+
+export type SeasonSummary = {
+  season: number;
+  champion: {
+    driverId: string | null;
+    name: string;
+    points: number;
+  };
+  teamChampion: {
+    teamId: string | null;
+    name: string;
+    points: number;
+  };
+  finalStandings: Array<{
+    position: number;
+    driverId: string;
+    driverName: string;
+    points: number;
+    wins: number;
+    podiums: number;
+  }>;
+  playerSummary: PlayerSeasonSummary | null;
+};
+
+export async function getSeasonStatus(saveId: string): Promise<SeasonStatus> {
+  return getJson<SeasonStatus>(`/career/${saveId}/season/status`);
+}
+
+export async function getSeasonSummary(saveId: string): Promise<SeasonSummary> {
+  return getJson<SeasonSummary>(`/career/${saveId}/season/summary`);
+}
+
+export async function advanceSeason(saveId: string): Promise<SaveGame> {
+  const response = await fetch(`${API_BASE_URL}/career/${saveId}/season/advance`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed for season advance: ${response.status}`);
+  }
+
+  return response.json();
+}

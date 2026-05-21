@@ -7,6 +7,7 @@ from app.engine.academy_engine import (
     check_season_milestone,
 )
 from app.engine.rivalry_engine import process_race_rivalries
+from app.engine.season_engine import is_season_complete, transition_to_offseason
 from app.engine.decision_engine import (
     auto_complete_race,
     clear_internal_state,
@@ -273,14 +274,18 @@ def finalize_weekend(save_id: str, round_id: str, sprint: RaceResult, feature: R
     updated_save, rivalry_news = process_race_rivalries(updated_save, feature)
     news_items.extend(rivalry_news)
 
+    # Update calendar with this round marked as complete
+    updated_calendar = [
+        r.model_copy(update={"completed": True}) if r.id == round_id else r
+        for r in save.calendar
+    ]
+
     # Update save (use updated_save which has academy_states and rivalry changes)
     updated = updated_save.model_copy(
         update={
             "phase": "between_races",
             "current_date": calendar_round.end_date,
-            "calendar": [
-                r.model_copy(update={"completed": True}) if r.id == round_id else r for r in save.calendar
-            ],
+            "calendar": updated_calendar,
             "weekend_results": [*save.weekend_results, weekend],
             "active_race": None,
             "news": [
@@ -298,6 +303,10 @@ def finalize_weekend(save_id: str, round_id: str, sprint: RaceResult, feature: R
             ],
         }
     )
+
+    # Check if season is complete and transition to offseason
+    if is_season_complete(updated):
+        updated, season_news = transition_to_offseason(updated)
 
     # Clean up prep data
     del _WEEKEND_PREP[key]

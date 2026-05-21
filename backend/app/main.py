@@ -7,6 +7,7 @@ from app.api.data_routes import router as data_router
 from app.api.decision_routes import router as decision_router
 from app.api.health_routes import router as health_router
 from app.api.save_routes import router as save_router
+from app.api.season_routes import router as season_router
 from app.api.weekend_routes import router as weekend_router
 
 
@@ -27,3 +28,4 @@ app.include_router(save_router)
 app.include_router(weekend_router)
 app.include_router(decision_router)
 app.include_router(activity_router)
+app.include_router(season_router)

@@ -1,18 +1,21 @@
 "use client";
 
-import { Calendar, FastForward, Loader2, Zap } from "lucide-react";
+import { Calendar, FastForward, Loader2, Trophy, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+  advanceSeason,
   getAcademyStatus,
   getAvailableActivities,
   getPlayerStatus,
   getRivalryStatus,
   getSave,
   getSaves,
+  getSeasonSummary,
   performActivity,
   skipToRaceWeek,
   type AcademyStatus,
   type RivalryStatusResponse,
+  type SeasonSummary,
 } from "@/lib/api";
 import type {
   Activity,
@@ -35,6 +38,7 @@ export function BetweenRaceClient() {
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus | null>(null);
   const [academyStatus, setAcademyStatus] = useState<AcademyStatus | null>(null);
   const [rivalryStatus, setRivalryStatus] = useState<RivalryStatusResponse | null>(null);
+  const [seasonSummary, setSeasonSummary] = useState<SeasonSummary | null>(null);
   const [lastOutcome, setLastOutcome] = useState<ActivityOutcome | null>(null);
   const [performing, setPerforming] = useState(false);
 
@@ -73,11 +77,20 @@ export function BetweenRaceClient() {
         setPlayerStatus(status);
         setAcademyStatus(academy);
         setRivalryStatus(rivalries);
+        setSeasonSummary(null);
+      } else if (loadedSave.phase === "offseason") {
+        const summary = await getSeasonSummary(saveId).catch(() => null);
+        setSeasonSummary(summary);
+        setActivities(null);
+        setPlayerStatus(null);
+        setAcademyStatus(null);
+        setRivalryStatus(null);
       } else {
         setActivities(null);
         setPlayerStatus(null);
         setAcademyStatus(null);
         setRivalryStatus(null);
+        setSeasonSummary(null);
       }
     } catch {
       setError("Could not load save data.");
@@ -109,6 +122,20 @@ export function BetweenRaceClient() {
       await loadSaveData(selectedSaveId);
     } catch {
       setError("Failed to skip to race week.");
+    } finally {
+      setPerforming(false);
+    }
+  }
+
+  async function handleAdvanceSeason() {
+    if (!selectedSaveId) return;
+    setPerforming(true);
+    setError(null);
+    try {
+      await advanceSeason(selectedSaveId);
+      await loadSaveData(selectedSaveId);
+    } catch {
+      setError("Failed to advance to next season.");
     } finally {
       setPerforming(false);
     }
@@ -155,7 +182,13 @@ export function BetweenRaceClient() {
 
       {error && <p className="error-text">{error}</p>}
 
-      {save?.phase !== "between_races" ? (
+      {save?.phase === "offseason" && seasonSummary ? (
+        <SeasonSummaryPanel
+          summary={seasonSummary}
+          onAdvance={handleAdvanceSeason}
+          advancing={performing}
+        />
+      ) : save?.phase !== "between_races" ? (
         <section className="panel">
           <h2>Not Between Races</h2>
           <p>
@@ -476,5 +509,152 @@ function ActivityCard({
         {completed ? "" : "Do Activity"}
       </button>
     </article>
+  );
+}
+
+function SeasonSummaryPanel({
+  summary,
+  onAdvance,
+  advancing,
+}: {
+  summary: SeasonSummary;
+  onAdvance: () => void;
+  advancing: boolean;
+}) {
+  const getRatingColor = (rating: string) => {
+    switch (rating) {
+      case "champion": return "#ffd700";
+      case "excellent": return "#22c55e";
+      case "good": return "#84cc16";
+      case "moderate": return "#eab308";
+      case "poor": return "#ef4444";
+      default: return "var(--muted)";
+    }
+  };
+
+  return (
+    <>
+      {/* Season Champion */}
+      <section className="panel" style={{ textAlign: "center", borderColor: "#ffd700", borderWidth: 2 }}>
+        <Trophy size={48} style={{ color: "#ffd700", marginBottom: 16 }} />
+        <h2>Season {summary.season} Complete</h2>
+        <p className="lede" style={{ fontSize: "1.5rem", marginTop: 8 }}>
+          <strong>{summary.champion.name}</strong> is the F2 Champion
+        </p>
+        <p style={{ color: "var(--muted)" }}>{summary.champion.points} points</p>
+      </section>
+
+      {/* Player Summary */}
+      {summary.playerSummary && (
+        <section
+          className="panel"
+          style={{
+            borderLeftColor: getRatingColor(summary.playerSummary.rating),
+            borderLeftWidth: 4,
+          }}
+        >
+          <h2>Your Season</h2>
+          <p className="lede">{summary.playerSummary.headline}</p>
+          <dl className="stat-grid" style={{ marginTop: 16 }}>
+            <div>
+              <dt>Championship</dt>
+              <dd style={{ fontSize: "1.5rem" }}>P{summary.playerSummary.championshipPosition}</dd>
+            </div>
+            <div>
+              <dt>Points</dt>
+              <dd>{summary.playerSummary.points}</dd>
+            </div>
+            <div>
+              <dt>Wins</dt>
+              <dd>{summary.playerSummary.wins}</dd>
+            </div>
+            <div>
+              <dt>Podiums</dt>
+              <dd>{summary.playerSummary.podiums}</dd>
+            </div>
+            <div>
+              <dt>Poles</dt>
+              <dd>{summary.playerSummary.poles}</dd>
+            </div>
+            <div>
+              <dt>Fastest Laps</dt>
+              <dd>{summary.playerSummary.fastestLaps}</dd>
+            </div>
+            <div>
+              <dt>DNFs</dt>
+              <dd>{summary.playerSummary.dnfs}</dd>
+            </div>
+            <div>
+              <dt>Points Finishes</dt>
+              <dd>{summary.playerSummary.pointsFinishes}/{summary.playerSummary.totalRaces}</dd>
+            </div>
+          </dl>
+        </section>
+      )}
+
+      {/* Final Standings */}
+      <section className="panel">
+        <h2>Final Championship Standings</h2>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12 }}>
+          <thead>
+            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+              <th style={{ padding: "8px 0" }}>Pos</th>
+              <th style={{ padding: "8px 0" }}>Driver</th>
+              <th style={{ padding: "8px 0", textAlign: "right" }}>Pts</th>
+              <th style={{ padding: "8px 0", textAlign: "right" }}>Wins</th>
+              <th style={{ padding: "8px 0", textAlign: "right" }}>Podiums</th>
+            </tr>
+          </thead>
+          <tbody>
+            {summary.finalStandings.slice(0, 10).map((entry) => (
+              <tr
+                key={entry.driverId}
+                style={{
+                  borderBottom: "1px solid var(--border)",
+                  backgroundColor:
+                    entry.driverId === summary.playerSummary?.driverId
+                      ? "rgba(255, 255, 255, 0.05)"
+                      : undefined,
+                }}
+              >
+                <td style={{ padding: "8px 0", fontWeight: entry.position <= 3 ? "bold" : "normal" }}>
+                  {entry.position}
+                </td>
+                <td style={{ padding: "8px 0" }}>
+                  {entry.driverName}
+                  {entry.position === 1 && " \u{1F3C6}"}
+                </td>
+                <td style={{ padding: "8px 0", textAlign: "right" }}>{entry.points}</td>
+                <td style={{ padding: "8px 0", textAlign: "right" }}>{entry.wins}</td>
+                <td style={{ padding: "8px 0", textAlign: "right" }}>{entry.podiums}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      {/* Team Champion */}
+      <section className="panel">
+        <h3>Teams' Champion: {summary.teamChampion.name}</h3>
+        <p style={{ color: "var(--muted)" }}>{summary.teamChampion.points} points</p>
+      </section>
+
+      {/* Advance Button */}
+      <section className="panel" style={{ textAlign: "center" }}>
+        <button
+          className="primary-button"
+          onClick={onAdvance}
+          disabled={advancing}
+          style={{ padding: "12px 24px", fontSize: "1.1rem" }}
+        >
+          {advancing ? (
+            <Loader2 size={20} className="spin" />
+          ) : (
+            <FastForward size={20} />
+          )}
+          {advancing ? "Advancing..." : "Start Next Season"}
+        </button>
+      </section>
+    </>
   );
 }
