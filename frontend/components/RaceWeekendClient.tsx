@@ -2,16 +2,14 @@
 
 import { Flag, Loader2, Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getSave, getSaves, simulateWeekend } from "@/lib/api";
+import { getSave, getSaves, simulateNextWeekend, simulateWeekend } from "@/lib/api";
 import type { Driver, RaceResult, SaveGame, SaveSummary, WeekendResult } from "@/lib/types";
-
-const openingRoundId = "f2_2026_round_01";
 
 export function RaceWeekendClient() {
   const [saves, setSaves] = useState<SaveSummary[]>([]);
   const [save, setSave] = useState<SaveGame | null>(null);
   const [selectedSaveId, setSelectedSaveId] = useState("");
-  const [selectedRoundId, setSelectedRoundId] = useState(openingRoundId);
+  const [selectedRoundId, setSelectedRoundId] = useState("");
   const [loading, setLoading] = useState(true);
   const [simulating, setSimulating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,11 +30,15 @@ export function RaceWeekendClient() {
       return;
     }
     getSave(selectedSaveId)
-      .then(setSave)
+      .then((loaded) => {
+        setSave(loaded);
+        setSelectedRoundId(nextRoundId(loaded) ?? loaded.calendar[0]?.id ?? "");
+      })
       .catch(() => setError("Could not load selected save."));
   }, [selectedSaveId]);
 
   const weekend = save?.weekendResults.find((result) => result.roundId === selectedRoundId);
+  const nextPlayableRound = save ? nextRoundId(save) : null;
   const driverMap = useMemo(() => {
     const map = new Map<string, Driver>();
     for (const driver of save?.drivers ?? []) {
@@ -53,6 +55,21 @@ export function RaceWeekendClient() {
       setSave(await simulateWeekend(selectedSaveId, selectedRoundId));
     } catch {
       setError("Weekend simulation failed. It may already be complete or the backend may be offline.");
+    } finally {
+      setSimulating(false);
+    }
+  }
+
+  async function runNextWeekend() {
+    if (!selectedSaveId) return;
+    setSimulating(true);
+    setError(null);
+    try {
+      const updated = await simulateNextWeekend(selectedSaveId);
+      setSave(updated);
+      setSelectedRoundId(updated.weekendResults.at(-1)?.roundId ?? selectedRoundId);
+    } catch {
+      setError("Next weekend simulation failed. The season may already be complete.");
     } finally {
       setSimulating(false);
     }
@@ -99,6 +116,25 @@ export function RaceWeekendClient() {
           {weekend ? "Weekend Complete" : "Simulate Weekend"}
         </button>
       </div>
+      <div className="panel compact-action-row">
+        <p>
+          Next playable race:{" "}
+          <strong>
+            {nextPlayableRound
+              ? save?.calendar.find((round) => round.id === nextPlayableRound)?.name
+              : "Season complete"}
+          </strong>
+        </p>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={runNextWeekend}
+          disabled={simulating || !nextPlayableRound}
+        >
+          <Flag size={18} />
+          Simulate Next Race
+        </button>
+      </div>
 
       {error ? <p className="error-text">{error}</p> : null}
 
@@ -112,6 +148,10 @@ export function RaceWeekendClient() {
       )}
     </section>
   );
+}
+
+function nextRoundId(save: SaveGame) {
+  return save.calendar.find((round) => !round.completed)?.id ?? null;
 }
 
 function WeekendView({

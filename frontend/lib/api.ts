@@ -111,6 +111,18 @@ export async function simulateWeekend(saveId: string, roundId: string): Promise<
   return response.json();
 }
 
+export async function simulateNextWeekend(saveId: string): Promise<SaveGame> {
+  const response = await fetch(`${API_BASE_URL}/career/${saveId}/weekend/next/simulate`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed for next weekend simulation: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function getWeekend(saveId: string, roundId: string): Promise<WeekendResult> {
   return getJson<WeekendResult>(`/career/${saveId}/weekend/${roundId}`);
 }

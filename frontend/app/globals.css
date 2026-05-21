@@ -362,6 +362,22 @@ select {
   gap: 14px;
 }
 
+.compact-action-row {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.compact-action-row p {
+  margin: 0;
+}
+
+.compact-action-row .secondary-button {
+  gap: 8px;
+  min-width: 190px;
+}
+
 .spin {
   animation: spin 900ms linear infinite;
 }
@@ -379,5 +395,10 @@ select {
 
   .control-panel {
     grid-template-columns: 1fr;
+  }
+
+  .compact-action-row {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

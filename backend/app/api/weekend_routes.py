@@ -21,9 +21,39 @@ def get_weekend_result(save_id: str, round_id: str) -> WeekendResult:
     return result
 
 
+@router.get("/next/round")
+def get_next_round(save_id: str):
+    save = _get_save(save_id)
+    next_round = _next_round(save)
+    if next_round is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Season complete")
+
+    return next_round
+
+
+@router.post("/next/simulate", response_model=SaveGame)
+def simulate_next_round(save_id: str) -> SaveGame:
+    save = _get_save(save_id)
+    next_round = _next_round(save)
+    if next_round is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Season complete")
+
+    return _simulate_and_save(save, next_round.id)
+
+
 @router.post("/{round_id}/simulate", response_model=SaveGame)
 def simulate_round(save_id: str, round_id: str) -> SaveGame:
     save = _get_save(save_id)
+    next_round = _next_round(save)
+    if next_round is not None and round_id != next_round.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Next playable round is {next_round.id}",
+        )
+    return _simulate_and_save(save, round_id)
+
+
+def _simulate_and_save(save: SaveGame, round_id: str) -> SaveGame:
     if any(weekend.round_id == round_id for weekend in save.weekend_results):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Weekend already completed")
 
@@ -81,3 +111,7 @@ def _team_standings(save: SaveGame, standings) -> dict[str, int]:
             team_points[driver.team_id] += driver_points.get(driver.id, 0)
 
     return dict(sorted(team_points.items(), key=lambda item: item[1], reverse=True))
+
+
+def _next_round(save: SaveGame):
+    return next((calendar_round for calendar_round in save.calendar if not calendar_round.completed), None)

@@ -82,3 +82,41 @@ def test_completed_weekend_can_be_fetched_and_not_resimulated(tmp_path) -> None:
 
     second = client.post(f"/career/{save['saveId']}/weekend/f2_2026_round_01/simulate")
     assert second.status_code == 409
+
+
+def test_next_weekend_endpoint_progresses_in_calendar_order(tmp_path) -> None:
+    manager = SaveManager(tmp_path)
+    career_routes.manager = manager
+    weekend_routes.manager = manager
+    client = TestClient(app)
+
+    save = client.post(
+        "/career/new",
+        json={
+            "name": "Calendar Driver",
+            "nationality": "Italian",
+            "age": 18,
+            "driverNumber": 12,
+            "backgroundId": "late_bloomer",
+            "archetypeId": "rain_specialist",
+            "teamId": "f2_mp",
+            "academyId": "academy_mercedes",
+            "difficulty": "realistic",
+        },
+    ).json()
+
+    next_round = client.get(f"/career/{save['saveId']}/weekend/next/round")
+    assert next_round.status_code == 200
+    assert next_round.json()["id"] == "f2_2026_round_01"
+
+    skip = client.post(f"/career/{save['saveId']}/weekend/f2_2026_round_02/simulate")
+    assert skip.status_code == 409
+
+    simulated = client.post(f"/career/{save['saveId']}/weekend/next/simulate")
+    assert simulated.status_code == 200
+    assert simulated.json()["calendar"][0]["completed"] is True
+    assert simulated.json()["calendar"][1]["completed"] is False
+
+    next_after = client.get(f"/career/{save['saveId']}/weekend/next/round")
+    assert next_after.status_code == 200
+    assert next_after.json()["id"] == "f2_2026_round_02"
