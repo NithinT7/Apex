@@ -213,12 +213,38 @@ export type RunningOrderEntry = {
   status: "running" | "dnf";
 };
 
+export type DecisionChoice = {
+  id: string;
+  label: string;
+  risk: number;
+  effects: Record<string, number | string>;
+};
+
+export type DecisionPrompt = {
+  id: string;
+  lap: number;
+  type:
+    | "start"
+    | "attack"
+    | "defend"
+    | "tires"
+    | "strategy"
+    | "safety_car"
+    | "weather"
+    | "late_pressure";
+  title: string;
+  description: string;
+  defaultChoiceId: string;
+  choices: DecisionChoice[];
+};
+
 export type LapSnapshot = {
   lap: number;
   runningOrder: RunningOrderEntry[];
   commentary: string[];
   safetyCar: boolean;
   weather: WeatherState;
+  decisionPrompt: DecisionPrompt | null;
 };
 
 export type RaceClassification = {
@@ -240,6 +266,7 @@ export type RaceResult = {
   startingGrid: string[];
   classification: RaceClassification[];
   lapLog: LapSnapshot[];
+  decisionPrompts: DecisionPrompt[];
   safetyCarLaps: number[];
   dnfs: string[];
 };

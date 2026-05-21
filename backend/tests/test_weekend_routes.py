@@ -41,6 +41,13 @@ def test_simulate_opening_weekend_updates_save(tmp_path) -> None:
     assert len(weekend["sprint"]["lapLog"]) == 12
     assert len(weekend["feature"]["lapLog"]) == 24
     assert len(weekend["feature"]["classification"]) == 22
+    assert 1 <= len(weekend["sprint"]["decisionPrompts"]) <= 6
+    assert 3 <= len(weekend["feature"]["decisionPrompts"]) <= 8
+    assert any(
+        lap["decisionPrompt"] is not None
+        for lap in weekend["feature"]["lapLog"]
+    )
+    assert weekend["feature"]["decisionPrompts"][0]["choices"]
     assert any(news["id"] == "f2_2026_round_01_feature_headline" for news in body["news"])
     assert sum(entry["points"] for entry in body["standings"]["driverStandings"]) > 0
 

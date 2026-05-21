@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from app.models.calendar import CalendarRound
 from app.models.driver import Driver
 from app.models.race import (
+    DecisionChoice,
+    DecisionPrompt,
     LapSnapshot,
     PracticeClassification,
     PracticeResult,
@@ -156,10 +158,13 @@ def _simulate_race(
     lap_log: list[LapSnapshot] = []
     safety_car_laps: list[int] = []
     dnfs: list[str] = []
+    decision_prompts: list[DecisionPrompt] = []
+    last_prompt_lap = -10
     safety_car_remaining = 0
 
     for lap in range(1, total_laps + 1):
         commentary: list[str] = []
+        decision_prompt: DecisionPrompt | None = None
         if safety_car_remaining == 0 and rng.randint(1, 100) <= max(2, track.safety_car_chance // 18):
             safety_car_remaining = rng.randint(1, 2)
             commentary.append("Safety Car deployed after debris is reported near the racing line.")
@@ -167,6 +172,28 @@ def _simulate_race(
         safety_car = safety_car_remaining > 0
         if safety_car:
             safety_car_laps.append(lap)
+
+        player_runner = _runner_for(runners, "player_driver")
+        if player_runner is not None:
+            decision_prompt = _maybe_decision_prompt(
+                session_type=session_type,
+                lap=lap,
+                total_laps=total_laps,
+                runners=runners,
+                player_runner=player_runner,
+                safety_car=safety_car,
+                weather=weather,
+            )
+            max_prompts = 4 if session_type == "sprint" else 6
+            if decision_prompt is not None and (
+                len(decision_prompts) >= max_prompts or lap - last_prompt_lap < 3
+            ):
+                decision_prompt = None
+            if decision_prompt is not None:
+                decision_prompts.append(decision_prompt)
+                last_prompt_lap = lap
+                commentary.append(_default_decision_commentary(decision_prompt))
+                _apply_default_decision(player_runner, decision_prompt)
 
         for runner in runners:
             if runner.status == "dnf":
@@ -200,7 +227,7 @@ def _simulate_race(
             if player_position is not None:
                 commentary.append(f"You cross lap {lap} in P{player_position}.")
 
-        lap_log.append(_lap_snapshot(lap, runners, commentary, safety_car, weather))
+        lap_log.append(_lap_snapshot(lap, runners, commentary, safety_car, weather, decision_prompt))
         safety_car_remaining = max(0, safety_car_remaining - 1)
 
     classified = [runner for runner in runners if runner.status == "running"] + [
@@ -227,6 +254,7 @@ def _simulate_race(
             for index, runner in enumerate(classified, start=1)
         ],
         lap_log=lap_log,
+        decision_prompts=decision_prompts,
         safety_car_laps=safety_car_laps,
         dnfs=dnfs,
     )
@@ -273,6 +301,7 @@ def _lap_snapshot(
     commentary: list[str],
     safety_car: bool,
     weather: WeatherState,
+    decision_prompt: DecisionPrompt | None,
 ) -> LapSnapshot:
     leader_time = next((runner.cumulative_time for runner in runners if runner.status == "running"), runners[0].cumulative_time)
     previous_time = leader_time
@@ -300,7 +329,161 @@ def _lap_snapshot(
         commentary=commentary,
         safety_car=safety_car,
         weather=weather,
+        decision_prompt=decision_prompt,
     )
+
+
+def _maybe_decision_prompt(
+    session_type: str,
+    lap: int,
+    total_laps: int,
+    runners: list[Runner],
+    player_runner: Runner,
+    safety_car: bool,
+    weather: WeatherState,
+) -> DecisionPrompt | None:
+    player_position = _position_of(runners, player_runner.driver.id)
+    if player_position is None or player_runner.status == "dnf":
+        return None
+
+    car_ahead_gap = _gap_to_car_ahead(runners, player_position)
+    car_behind_gap = _gap_to_car_behind(runners, player_position)
+
+    if lap == 1:
+        return DecisionPrompt(
+            id=f"{session_type}_lap_{lap}_start",
+            lap=lap,
+            type="start",
+            title="Launch Mode",
+            description="The lights are out and there is space into Turn 1.",
+            default_choice_id="balanced_launch",
+            choices=[
+                DecisionChoice(id="safe_launch", label="Protect position", risk=20, effects={"paceDelta": 0.1, "incidentRisk": -8}),
+                DecisionChoice(id="balanced_launch", label="Race the cars around you", risk=45, effects={"paceDelta": -0.05}),
+                DecisionChoice(id="aggressive_launch", label="Attack immediately", risk=70, effects={"paceDelta": -0.18, "tireWear": 3, "incidentRisk": 8}),
+            ],
+        )
+
+    if safety_car and session_type == "feature" and lap > total_laps // 3:
+        return DecisionPrompt(
+            id=f"{session_type}_lap_{lap}_safety_car",
+            lap=lap,
+            type="safety_car",
+            title="Safety Car Window",
+            description="Race control has neutralised the field and the pit lane is open.",
+            default_choice_id="engineer_recommendation",
+            choices=[
+                DecisionChoice(id="pit_now", label="Pit now for track position later", risk=45, effects={"pitPreference": "early"}),
+                DecisionChoice(id="stay_out", label="Stay out and keep position", risk=55, effects={"trackPosition": 1, "tireWear": 6}),
+                DecisionChoice(id="engineer_recommendation", label="Take engineer recommendation", risk=30, effects={"strategyConfidence": 4}),
+            ],
+        )
+
+    if weather.condition != "dry" and lap in {3, total_laps // 2}:
+        return DecisionPrompt(
+            id=f"{session_type}_lap_{lap}_weather",
+            lap=lap,
+            type="weather",
+            title="Changing Grip",
+            description="Grip is inconsistent and the racing line is evolving.",
+            default_choice_id="build_temperature",
+            choices=[
+                DecisionChoice(id="push_for_heat", label="Push to build tyre temperature", risk=62, effects={"paceDelta": -0.12, "incidentRisk": 6}),
+                DecisionChoice(id="build_temperature", label="Build temperature progressively", risk=32, effects={"paceDelta": 0.02}),
+                DecisionChoice(id="stay_wide", label="Avoid painted kerbs", risk=18, effects={"paceDelta": 0.14, "incidentRisk": -7}),
+            ],
+        )
+
+    if player_runner.tire_wear > 62 and lap < total_laps - 2:
+        return DecisionPrompt(
+            id=f"{session_type}_lap_{lap}_tires",
+            lap=lap,
+            type="tires",
+            title="Tyres Overheating",
+            description="Your engineer warns the rears are starting to slide under traction.",
+            default_choice_id="manage_tires",
+            choices=[
+                DecisionChoice(id="keep_pushing", label="Keep pushing", risk=65, effects={"paceDelta": -0.08, "tireWear": 8}),
+                DecisionChoice(id="manage_tires", label="Manage traction zones", risk=25, effects={"paceDelta": 0.12, "tireWear": -6}),
+                DecisionChoice(id="cool_tires", label="Drop back and cool tyres", risk=15, effects={"paceDelta": 0.25, "tireWear": -12}),
+            ],
+        )
+
+    if car_ahead_gap is not None and car_ahead_gap <= 1.0 and lap not in {total_laps}:
+        return DecisionPrompt(
+            id=f"{session_type}_lap_{lap}_attack",
+            lap=lap,
+            type="attack",
+            title="Attack Range",
+            description="You are inside DRS range and the car ahead is vulnerable.",
+            default_choice_id="wait_for_drs",
+            choices=[
+                DecisionChoice(id="send_inside", label="Send it down the inside", risk=78, effects={"paceDelta": -0.2, "tireWear": 5, "incidentRisk": 12}),
+                DecisionChoice(id="wait_for_drs", label="Wait for the DRS straight", risk=38, effects={"paceDelta": -0.05}),
+                DecisionChoice(id="save_tires", label="Save tyres and attack later", risk=18, effects={"paceDelta": 0.12, "tireWear": -5}),
+            ],
+        )
+
+    if car_behind_gap is not None and car_behind_gap <= 0.9:
+        return DecisionPrompt(
+            id=f"{session_type}_lap_{lap}_defend",
+            lap=lap,
+            type="defend",
+            title="Pressure From Behind",
+            description="The car behind is closing quickly with DRS.",
+            default_choice_id="cover_inside",
+            choices=[
+                DecisionChoice(id="cover_inside", label="Cover the inside line", risk=42, effects={"paceDelta": 0.08}),
+                DecisionChoice(id="break_drs", label="Push to break DRS", risk=66, effects={"paceDelta": -0.12, "tireWear": 5}),
+                DecisionChoice(id="save_race", label="Do not over-defend", risk=20, effects={"paceDelta": 0.05, "reputation": 1}),
+            ],
+        )
+
+    if lap == total_laps - 1 and player_position <= 10:
+        return DecisionPrompt(
+            id=f"{session_type}_lap_{lap}_late_pressure",
+            lap=lap,
+            type="late_pressure",
+            title="Points On The Line",
+            description="The final laps can decide whether this becomes a points finish.",
+            default_choice_id="bring_it_home",
+            choices=[
+                DecisionChoice(id="all_in", label="Use everything left", risk=72, effects={"paceDelta": -0.18, "tireWear": 6}),
+                DecisionChoice(id="bring_it_home", label="Bring it home cleanly", risk=24, effects={"paceDelta": 0.04, "incidentRisk": -5}),
+                DecisionChoice(id="defensive_margin", label="Prioritise exits and traction", risk=34, effects={"paceDelta": 0.08, "tireWear": -4}),
+            ],
+        )
+
+    return None
+
+
+def _apply_default_decision(player_runner: Runner, prompt: DecisionPrompt) -> None:
+    choice = next(choice for choice in prompt.choices if choice.id == prompt.default_choice_id)
+    pace_delta = float(choice.effects.get("paceDelta", 0))
+    tire_wear_delta = float(choice.effects.get("tireWear", 0))
+    player_runner.cumulative_time += max(-0.35, min(0.35, pace_delta))
+    player_runner.tire_wear = max(0, min(100, player_runner.tire_wear + tire_wear_delta))
+
+
+def _default_decision_commentary(prompt: DecisionPrompt) -> str:
+    choice = next(choice for choice in prompt.choices if choice.id == prompt.default_choice_id)
+    return f"Decision: {prompt.title}. Default call: {choice.label}."
+
+
+def _runner_for(runners: list[Runner], driver_id: str) -> Runner | None:
+    return next((runner for runner in runners if runner.driver.id == driver_id), None)
+
+
+def _gap_to_car_ahead(runners: list[Runner], position: int) -> float | None:
+    if position <= 1:
+        return None
+    return max(0, runners[position - 1].cumulative_time - runners[position - 2].cumulative_time)
+
+
+def _gap_to_car_behind(runners: list[Runner], position: int) -> float | None:
+    if position >= len(runners):
+        return None
+    return max(0, runners[position].cumulative_time - runners[position - 1].cumulative_time)
 
 
 def _weather(track: Track, rng: random.Random) -> WeatherState:

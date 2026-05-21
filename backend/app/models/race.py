@@ -7,6 +7,7 @@ SessionType = Literal["practice", "qualifying", "sprint", "feature"]
 TireCompound = Literal["soft", "medium", "hard", "inter", "wet"]
 RunnerStatus = Literal["running", "dnf"]
 WeatherCondition = Literal["dry", "damp", "wet"]
+DecisionType = Literal["start", "attack", "defend", "tires", "strategy", "safety_car", "weather", "late_pressure"]
 
 
 class WeatherState(AppModel):
@@ -55,12 +56,30 @@ class RunningOrderEntry(AppModel):
     status: RunnerStatus
 
 
+class DecisionChoice(AppModel):
+    id: str
+    label: str
+    risk: int
+    effects: dict[str, int | float | str]
+
+
+class DecisionPrompt(AppModel):
+    id: str
+    lap: int
+    type: DecisionType
+    title: str
+    description: str
+    default_choice_id: str
+    choices: list[DecisionChoice]
+
+
 class LapSnapshot(AppModel):
     lap: int
     running_order: list[RunningOrderEntry]
     commentary: list[str]
     safety_car: bool
     weather: WeatherState
+    decision_prompt: DecisionPrompt | None = None
 
 
 class RaceClassification(AppModel):
@@ -82,6 +101,7 @@ class RaceResult(AppModel):
     starting_grid: list[str]
     classification: list[RaceClassification]
     lap_log: list[LapSnapshot]
+    decision_prompts: list[DecisionPrompt]
     safety_car_laps: list[int]
     dnfs: list[str]
 
