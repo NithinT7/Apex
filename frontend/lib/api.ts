@@ -318,3 +318,27 @@ export type AcademyStatus = {
   patience?: number;
   supportLevel?: number;
 };
+
+export async function getRivalryStatus(saveId: string): Promise<RivalryStatusResponse> {
+  return getJson<RivalryStatusResponse>(`/career/${saveId}/activities/rivalries`);
+}
+
+export type RivalryResponse = {
+  id: string;
+  opponentId: string;
+  opponentName: string;
+  rivalryType: string;
+  intensity: number;
+  intensityLevel: string;
+  respect: number;
+  recentEvents: Array<{
+    description: string;
+    intensityChange: number;
+  }>;
+};
+
+export type RivalryStatusResponse = {
+  rivalries: RivalryResponse[];
+  mostIntenseId: string | null;
+  teammateRivalryId: string | null;
+};

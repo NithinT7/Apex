@@ -6,11 +6,13 @@ import {
   getAcademyStatus,
   getAvailableActivities,
   getPlayerStatus,
+  getRivalryStatus,
   getSave,
   getSaves,
   performActivity,
   skipToRaceWeek,
   type AcademyStatus,
+  type RivalryStatusResponse,
 } from "@/lib/api";
 import type {
   Activity,
@@ -32,6 +34,7 @@ export function BetweenRaceClient() {
   const [activities, setActivities] = useState<AvailableActivities | null>(null);
   const [playerStatus, setPlayerStatus] = useState<PlayerStatus | null>(null);
   const [academyStatus, setAcademyStatus] = useState<AcademyStatus | null>(null);
+  const [rivalryStatus, setRivalryStatus] = useState<RivalryStatusResponse | null>(null);
   const [lastOutcome, setLastOutcome] = useState<ActivityOutcome | null>(null);
   const [performing, setPerforming] = useState(false);
 
@@ -60,18 +63,21 @@ export function BetweenRaceClient() {
       setLastOutcome(null);
 
       if (loadedSave.phase === "between_races") {
-        const [acts, status, academy] = await Promise.all([
+        const [acts, status, academy, rivalries] = await Promise.all([
           getAvailableActivities(saveId),
           getPlayerStatus(saveId),
           getAcademyStatus(saveId).catch(() => null),
+          getRivalryStatus(saveId).catch(() => null),
         ]);
         setActivities(acts);
         setPlayerStatus(status);
         setAcademyStatus(academy);
+        setRivalryStatus(rivalries);
       } else {
         setActivities(null);
         setPlayerStatus(null);
         setAcademyStatus(null);
+        setRivalryStatus(null);
       }
     } catch {
       setError("Could not load save data.");
@@ -196,6 +202,11 @@ export function BetweenRaceClient() {
           {/* Academy Status */}
           {academyStatus && academyStatus.trust !== null && (
             <AcademyStatusPanel academyStatus={academyStatus} />
+          )}
+
+          {/* Rivalry Status */}
+          {rivalryStatus && rivalryStatus.rivalries.length > 0 && (
+            <RivalryStatusPanel rivalryStatus={rivalryStatus} />
           )}
 
           {/* Last Activity Outcome */}
@@ -339,6 +350,73 @@ function AcademyStatusPanel({ academyStatus }: { academyStatus: AcademyStatus })
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+function RivalryStatusPanel({ rivalryStatus }: { rivalryStatus: RivalryStatusResponse }) {
+  const getIntensityColor = (level: string) => {
+    switch (level) {
+      case "bitter": return "#ef4444";
+      case "intense": return "#f97316";
+      case "moderate": return "#eab308";
+      case "mild": return "#84cc16";
+      default: return "var(--muted)";
+    }
+  };
+
+  const getRivalryTypeLabel = (type: string) => {
+    switch (type) {
+      case "teammate": return "Teammate";
+      case "championship": return "Championship";
+      case "promotional": return "F1 Seat";
+      case "historical": return "Historical";
+      case "personal": return "Personal";
+      default: return type;
+    }
+  };
+
+  return (
+    <section className="panel">
+      <h2>Rivalries</h2>
+      <div className="rivalry-list">
+        {rivalryStatus.rivalries.map((rivalry) => (
+          <div
+            key={rivalry.id}
+            className="rivalry-card"
+            style={{
+              borderLeftColor: getIntensityColor(rivalry.intensityLevel),
+              borderLeftWidth: 3,
+              borderLeftStyle: "solid",
+              padding: "12px",
+              marginBottom: "8px",
+              background: "var(--panel-bg)",
+              borderRadius: "4px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <strong>{rivalry.opponentName}</strong>
+              <span
+                style={{
+                  color: getIntensityColor(rivalry.intensityLevel),
+                  fontSize: "0.875rem",
+                  textTransform: "capitalize",
+                }}
+              >
+                {rivalry.intensityLevel}
+              </span>
+            </div>
+            <div style={{ fontSize: "0.875rem", color: "var(--muted)", marginTop: "4px" }}>
+              {getRivalryTypeLabel(rivalry.rivalryType)} Rivalry • Intensity: {rivalry.intensity}%
+            </div>
+            {rivalry.recentEvents.length > 0 && (
+              <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginTop: "8px" }}>
+                Recent: {rivalry.recentEvents[0].description}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

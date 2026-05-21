@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.engine.academy_engine import get_academy_status
+from app.engine.rivalry_engine import get_rivalry_status
 from app.engine.activity_engine import (
     advance_to_race_week,
     get_available_activities,
@@ -91,6 +92,51 @@ def get_academy(save_id: str) -> dict:
         )
 
     return academy_status
+
+
+@router.get("/rivalries")
+def get_rivalries(save_id: str) -> dict:
+    """
+    Get current rivalry status for the player.
+
+    Returns active rivalries with their intensity and type.
+    """
+    save = _get_save(save_id)
+
+    rivalry_status = get_rivalry_status(save)
+    return {
+        "rivalries": [
+            {
+                "id": r.id,
+                "opponentId": r.opponent_id,
+                "opponentName": next(
+                    (d.name for d in save.drivers if d.id == r.opponent_id), "Unknown"
+                ),
+                "rivalryType": r.rivalry_type,
+                "intensity": r.intensity,
+                "intensityLevel": _get_intensity_label(r.intensity),
+                "respect": r.respect,
+                "recentEvents": [
+                    {"description": e.description, "intensityChange": e.intensity_change}
+                    for e in r.recent_events[:3]
+                ],
+            }
+            for r in rivalry_status.rivalries
+        ],
+        "mostIntenseId": rivalry_status.most_intense.id if rivalry_status.most_intense else None,
+        "teammateRivalryId": rivalry_status.teammate_rivalry.id if rivalry_status.teammate_rivalry else None,
+    }
+
+
+def _get_intensity_label(intensity: int) -> str:
+    """Get human-readable intensity label."""
+    if intensity >= 90:
+        return "bitter"
+    if intensity >= 75:
+        return "intense"
+    if intensity >= 50:
+        return "moderate"
+    return "mild"
 
 
 @router.post("/skip", response_model=SaveGame)

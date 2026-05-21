@@ -6,6 +6,7 @@ from app.engine.academy_engine import (
     apply_race_trust_change,
     check_season_milestone,
 )
+from app.engine.rivalry_engine import process_race_rivalries
 from app.engine.decision_engine import (
     auto_complete_race,
     clear_internal_state,
@@ -268,7 +269,11 @@ def finalize_weekend(save_id: str, round_id: str, sprint: RaceResult, feature: R
     updated_save, milestone_news = check_season_milestone(updated_save, completed_rounds)
     news_items.extend(milestone_news)
 
-    # Update save (use updated_save which has academy_states changes)
+    # Process rivalries for feature race (main race)
+    updated_save, rivalry_news = process_race_rivalries(updated_save, feature)
+    news_items.extend(rivalry_news)
+
+    # Update save (use updated_save which has academy_states and rivalry changes)
     updated = updated_save.model_copy(
         update={
             "phase": "between_races",

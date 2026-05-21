@@ -10,6 +10,7 @@ from app.models.base import AppModel
 from app.models.calendar import CalendarRound
 from app.models.driver import Driver
 from app.models.race import ActiveRaceState, WeekendResult
+from app.models.rivalry import Rivalry
 from app.models.team import Team
 
 
@@ -45,22 +46,11 @@ class ChampionshipState(AppModel):
 class NewsItem(AppModel):
     id: str
     date: str
-    category: Literal["race", "media", "academy", "rumor", "contract", "incident", "system"]
+    category: Literal["race", "media", "academy", "rumor", "contract", "incident", "system", "rivalry"]
     headline: str
     body: str
     linked_driver_ids: list[str] = Field(default_factory=list)
     importance: int = 1
-
-
-class Rivalry(AppModel):
-    rival_driver_id: str
-    type: Literal["teammate", "academy", "championship", "media", "clean", "dirty"]
-    intensity: int = 0
-    respect: int = 50
-    incident_history: int = 0
-    media_attention: int = 0
-    championship_stakes: int = 0
-    academy_seat_conflict: bool = False
 
 
 class Contract(AppModel):

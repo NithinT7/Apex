@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.engine.academy_engine import apply_race_trust_change, check_season_milestone
+from app.engine.rivalry_engine import process_race_rivalries
 from app.engine.standings_engine import apply_race_points
 from app.engine.weekend_engine import simulate_weekend
 from app.models.race import WeekendResult
@@ -85,6 +86,10 @@ def _simulate_and_save(save: SaveGame, round_id: str) -> SaveGame:
     completed_rounds = sum(1 for r in save.calendar if r.completed) + 1  # +1 for this round
     updated_save, milestone_news = check_season_milestone(updated_save, completed_rounds)
     news_items.extend(milestone_news)
+
+    # Process rivalries for feature race (main race)
+    updated_save, rivalry_news = process_race_rivalries(updated_save, weekend.feature)
+    news_items.extend(rivalry_news)
 
     updated = updated_save.model_copy(
         update={
