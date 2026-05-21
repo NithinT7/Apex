@@ -1,0 +1,16 @@
+[
+  {"id": "f2_2026_round_01", "roundNumber": 1, "name": "Melbourne", "trackId": "melbourne", "startDate": "2026-03-06", "endDate": "2026-03-08", "country": "Australia", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_02", "roundNumber": 2, "name": "Miami", "trackId": "miami", "startDate": "2026-05-01", "endDate": "2026-05-03", "country": "United States", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_03", "roundNumber": 3, "name": "Montréal", "trackId": "montreal", "startDate": "2026-05-22", "endDate": "2026-05-24", "country": "Canada", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_04", "roundNumber": 4, "name": "Monaco", "trackId": "monaco", "startDate": "2026-06-04", "endDate": "2026-06-07", "country": "Monaco", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_05", "roundNumber": 5, "name": "Barcelona", "trackId": "barcelona", "startDate": "2026-06-12", "endDate": "2026-06-14", "country": "Spain", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_06", "roundNumber": 6, "name": "Spielberg", "trackId": "spielberg", "startDate": "2026-06-26", "endDate": "2026-06-28", "country": "Austria", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_07", "roundNumber": 7, "name": "Silverstone", "trackId": "silverstone", "startDate": "2026-07-03", "endDate": "2026-07-05", "country": "United Kingdom", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_08", "roundNumber": 8, "name": "Spa-Francorchamps", "trackId": "spa", "startDate": "2026-07-17", "endDate": "2026-07-19", "country": "Belgium", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_09", "roundNumber": 9, "name": "Budapest", "trackId": "budapest", "startDate": "2026-07-24", "endDate": "2026-07-26", "country": "Hungary", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_10", "roundNumber": 10, "name": "Monza", "trackId": "monza", "startDate": "2026-09-04", "endDate": "2026-09-06", "country": "Italy", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_11", "roundNumber": 11, "name": "Madrid", "trackId": "madrid", "startDate": "2026-09-11", "endDate": "2026-09-13", "country": "Spain", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_12", "roundNumber": 12, "name": "Baku", "trackId": "baku", "startDate": "2026-09-24", "endDate": "2026-09-26", "country": "Azerbaijan", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_13", "roundNumber": 13, "name": "Lusail", "trackId": "lusail", "startDate": "2026-11-27", "endDate": "2026-11-29", "country": "Qatar", "series": "F2", "hasSprint": true},
+  {"id": "f2_2026_round_14", "roundNumber": 14, "name": "Yas Island", "trackId": "yas_marina", "startDate": "2026-12-04", "endDate": "2026-12-06", "country": "United Arab Emirates", "series": "F2", "hasSprint": true}
+]

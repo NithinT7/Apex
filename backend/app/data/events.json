@@ -1,0 +1,31 @@
+[
+  {
+    "id": "academy_pressure_meeting",
+    "title": "Academy Pressure Meeting",
+    "category": "academy",
+    "trigger": {
+      "academyTrustBelow": 45,
+      "championshipPositionWorseThan": 6
+    },
+    "description": "Your academy director warns that results need to improve before summer break.",
+    "choices": [
+      {"id": "promise_results", "text": "Promise immediate results", "effects": {"pressure": 3, "academyTrust": 5, "fatigue": 5}},
+      {"id": "ask_support", "text": "Ask for more simulator support", "effects": {"technicalFeedback": 2, "academyTrust": 2}},
+      {"id": "push_back", "text": "Push back and defend your season", "effects": {"confidence": 5, "academyTrust": -5, "mediaInterest": 3}}
+    ]
+  },
+  {
+    "id": "post_race_strategy_question",
+    "title": "Strategy Question",
+    "category": "media",
+    "trigger": {
+      "lostPositionsAfterPitStop": 2
+    },
+    "description": "A reporter asks if the team cost you a better result with the pit strategy.",
+    "choices": [
+      {"id": "defend_team", "text": "We win and lose together.", "effects": {"teamRelationship": 5, "mediaReputation": 1}},
+      {"id": "hint_frustration", "text": "I think the result speaks for itself.", "effects": {"teamRelationship": -5, "fanSupport": 3}},
+      {"id": "take_blame", "text": "I should have done more on track.", "effects": {"teamRelationship": 2, "confidence": -2, "paddockReputation": 2}}
+    ]
+  }
+]

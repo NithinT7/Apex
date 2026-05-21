@@ -1,0 +1,35 @@
+import type { Academy, CalendarRound, DataBootstrap, HealthResponse, Team } from "./types";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+async function getJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed for ${path}: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function getHealth(): Promise<HealthResponse> {
+  return getJson<HealthResponse>("/health");
+}
+
+export async function getDataBootstrap(): Promise<DataBootstrap> {
+  return getJson<DataBootstrap>("/data/bootstrap");
+}
+
+export async function getF2Teams(): Promise<Team[]> {
+  return getJson<Team[]>("/data/teams/f2");
+}
+
+export async function getAcademies(): Promise<Academy[]> {
+  return getJson<Academy[]>("/data/academies");
+}
+
+export async function getF2Calendar(): Promise<CalendarRound[]> {
+  return getJson<CalendarRound[]>("/data/calendar/f2");
+}

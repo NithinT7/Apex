@@ -1,0 +1,13 @@
+[
+  {"id": "f2_invicta", "name": "Invicta Racing", "series": "F2", "country": "United Kingdom", "carPerformance": 88, "reliability": 84, "strategy": 82, "developmentRate": 80, "financialHealth": 86, "academyId": null},
+  {"id": "f2_hitech", "name": "Hitech", "series": "F2", "country": "United Kingdom", "carPerformance": 84, "reliability": 80, "strategy": 78, "developmentRate": 76, "financialHealth": 78, "academyId": null},
+  {"id": "f2_campos", "name": "Campos Racing", "series": "F2", "country": "Spain", "carPerformance": 85, "reliability": 82, "strategy": 80, "developmentRate": 78, "financialHealth": 80, "academyId": null},
+  {"id": "f2_dams", "name": "DAMS Lucas Oil", "series": "F2", "country": "France", "carPerformance": 82, "reliability": 82, "strategy": 80, "developmentRate": 78, "financialHealth": 82, "academyId": null},
+  {"id": "f2_mp", "name": "MP Motorsport", "series": "F2", "country": "Netherlands", "carPerformance": 86, "reliability": 82, "strategy": 82, "developmentRate": 78, "financialHealth": 82, "academyId": null},
+  {"id": "f2_prema", "name": "PREMA Racing", "series": "F2", "country": "Italy", "carPerformance": 90, "reliability": 84, "strategy": 82, "developmentRate": 84, "financialHealth": 88, "academyId": null},
+  {"id": "f2_rodin", "name": "Rodin Motorsport", "series": "F2", "country": "New Zealand", "carPerformance": 81, "reliability": 80, "strategy": 78, "developmentRate": 76, "financialHealth": 82, "academyId": null},
+  {"id": "f2_art", "name": "ART Grand Prix", "series": "F2", "country": "France", "carPerformance": 87, "reliability": 84, "strategy": 84, "developmentRate": 82, "financialHealth": 86, "academyId": null},
+  {"id": "f2_aix", "name": "AIX Racing", "series": "F2", "country": "Germany", "carPerformance": 76, "reliability": 76, "strategy": 74, "developmentRate": 72, "financialHealth": 76, "academyId": null},
+  {"id": "f2_var", "name": "Van Amersfoort Racing", "series": "F2", "country": "Netherlands", "carPerformance": 78, "reliability": 78, "strategy": 76, "developmentRate": 74, "financialHealth": 78, "academyId": null},
+  {"id": "f2_trident", "name": "Trident", "series": "F2", "country": "Italy", "carPerformance": 77, "reliability": 76, "strategy": 74, "developmentRate": 74, "financialHealth": 76, "academyId": null}
+]
