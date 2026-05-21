@@ -53,3 +53,13 @@ Phase 4 basic weekend simulation is implemented:
 - FastAPI weekend endpoints:
   - `POST /career/{save_id}/weekend/{round_id}/simulate`
   - `GET /career/{save_id}/weekend/{round_id}`
+
+## Dev Utilities
+
+Run a standalone F1 season simulation without touching career saves:
+
+```bash
+python3 backend/scripts/simulate_f1_season.py --seed 2026
+```
+
+Use `--rounds 3` for a shorter sample run.
