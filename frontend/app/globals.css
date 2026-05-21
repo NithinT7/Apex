@@ -623,6 +623,95 @@ select {
   line-height: 1.4;
 }
 
+/* Activity Cards */
+.activity-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.activity-card {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.activity-card.completed {
+  opacity: 0.6;
+}
+
+.activity-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.activity-header h3 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.activity-duration {
+  background: var(--surface);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.activity-card p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0 0 12px;
+}
+
+.activity-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.activity-effects span {
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.effect-positive {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.effect-negative {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.activity-risk {
+  color: #fb923c;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.effect-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.effect-summary span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
 @media (max-width: 760px) {
   .creation-grid {
     grid-template-columns: 1fr;

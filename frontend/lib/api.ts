@@ -1,12 +1,15 @@
 import type {
   Academy,
   ActiveRaceState,
+  ActivityOutcome,
+  AvailableActivities,
   CalendarRound,
   CareerCreationOptions,
   CreateCareerPayload,
   DataBootstrap,
   DecisionResponse,
   HealthResponse,
+  PlayerStatus,
   RaceResult,
   SaveGame,
   SaveSummary,
@@ -255,4 +258,43 @@ export async function finalizeWeekend(
   }
 
   return response.json();
+}
+
+// Between-race activity endpoints
+
+export async function getAvailableActivities(saveId: string): Promise<AvailableActivities> {
+  return getJson<AvailableActivities>(`/career/${saveId}/activities`);
+}
+
+export async function performActivity(
+  saveId: string,
+  activityId: string
+): Promise<ActivityOutcome> {
+  const response = await fetch(
+    `${API_BASE_URL}/career/${saveId}/activities/${activityId}`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API request failed for activity: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function skipToRaceWeek(saveId: string): Promise<SaveGame> {
+  const response = await fetch(
+    `${API_BASE_URL}/career/${saveId}/activities/skip`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API request failed for skip to race: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function getPlayerStatus(saveId: string): Promise<PlayerStatus> {
+  return getJson<PlayerStatus>(`/career/${saveId}/activities/status`);
 }

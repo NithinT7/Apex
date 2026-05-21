@@ -411,3 +411,62 @@ export type WeekendPrep = {
   sprintGrid: string[];
   featureGrid: string[];
 };
+
+// Between-race activity types
+
+export type ActivityType =
+  | "rest"
+  | "simulator"
+  | "physical_training"
+  | "media_appearance"
+  | "sponsor_event"
+  | "team_debrief"
+  | "academy_meeting"
+  | "fan_engagement"
+  | "mental_coaching";
+
+export type ActivityEffect = {
+  fatigue: number;
+  morale: number;
+  form: number;
+  academyTrust: number;
+  reputation: number;
+  sponsorValue: number;
+};
+
+export type Activity = {
+  id: string;
+  name: string;
+  type: ActivityType;
+  description: string;
+  durationDays: number;
+  baseEffects: ActivityEffect;
+  riskChance: number;
+  riskEffects: ActivityEffect | null;
+  requirements: Record<string, number>;
+};
+
+export type ActivityOutcome = {
+  activityId: string;
+  activityName: string;
+  success: boolean;
+  narrative: string;
+  effectsApplied: ActivityEffect;
+};
+
+export type AvailableActivities = {
+  daysUntilNextRace: number;
+  activities: Activity[];
+  completedActivities: string[];
+};
+
+export type PlayerStatus = {
+  fatigue: number;
+  morale: number;
+  form: number;
+  reputation: number;
+  sponsorValue: number;
+  academyTrust: number | null;
+  daysUntilRace: number;
+  phase: CareerPhase;
+};
