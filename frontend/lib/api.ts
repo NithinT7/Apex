@@ -413,3 +413,66 @@ export async function advanceSeason(saveId: string): Promise<SaveGame> {
 
   return response.json();
 }
+
+// F1 Silly Season endpoints
+
+export type F1Offer = {
+  teamId: string;
+  teamName: string;
+  likelihood: number;
+  role: string;
+  carPerformance: number;
+  isAcademyTeam: boolean;
+};
+
+export type F1OffersResponse = {
+  offers: F1Offer[];
+  hasOffers: boolean;
+  bestOffer: F1Offer | null;
+};
+
+export type TransferRumor = {
+  id: string;
+  headline: string;
+  body: string;
+  linkedDriverIds: string[];
+  importance: number;
+};
+
+export async function getF1Offers(saveId: string): Promise<F1OffersResponse> {
+  return getJson<F1OffersResponse>(`/career/${saveId}/season/f1-offers`);
+}
+
+export async function makeF1Decision(
+  saveId: string,
+  accept: boolean,
+  teamId?: string
+): Promise<SaveGame> {
+  const response = await fetch(`${API_BASE_URL}/career/${saveId}/season/f1-decision`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accept, teamId }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed for F1 decision: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function getTransferRumors(saveId: string): Promise<{ rumors: TransferRumor[] }> {
+  return getJson<{ rumors: TransferRumor[] }>(`/career/${saveId}/season/rumors`);
+}
+
+export async function simulateDriverMarket(saveId: string): Promise<SaveGame> {
+  const response = await fetch(`${API_BASE_URL}/career/${saveId}/season/simulate-market`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed for market simulation: ${response.status}`);
+  }
+
+  return response.json();
+}

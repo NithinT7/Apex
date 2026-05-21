@@ -6,14 +6,18 @@ import {
   advanceSeason,
   getAcademyStatus,
   getAvailableActivities,
+  getF1Offers,
   getPlayerStatus,
   getRivalryStatus,
   getSave,
   getSaves,
   getSeasonSummary,
+  makeF1Decision,
   performActivity,
+  simulateDriverMarket,
   skipToRaceWeek,
   type AcademyStatus,
+  type F1OffersResponse,
   type RivalryStatusResponse,
   type SeasonSummary,
 } from "@/lib/api";
@@ -39,6 +43,7 @@ export function BetweenRaceClient() {
   const [academyStatus, setAcademyStatus] = useState<AcademyStatus | null>(null);
   const [rivalryStatus, setRivalryStatus] = useState<RivalryStatusResponse | null>(null);
   const [seasonSummary, setSeasonSummary] = useState<SeasonSummary | null>(null);
+  const [f1Offers, setF1Offers] = useState<F1OffersResponse | null>(null);
   const [lastOutcome, setLastOutcome] = useState<ActivityOutcome | null>(null);
   const [performing, setPerforming] = useState(false);
 
@@ -79,8 +84,12 @@ export function BetweenRaceClient() {
         setRivalryStatus(rivalries);
         setSeasonSummary(null);
       } else if (loadedSave.phase === "offseason") {
-        const summary = await getSeasonSummary(saveId).catch(() => null);
+        const [summary, offers] = await Promise.all([
+          getSeasonSummary(saveId).catch(() => null),
+          getF1Offers(saveId).catch(() => null),
+        ]);
         setSeasonSummary(summary);
+        setF1Offers(offers);
         setActivities(null);
         setPlayerStatus(null);
         setAcademyStatus(null);
@@ -132,10 +141,26 @@ export function BetweenRaceClient() {
     setPerforming(true);
     setError(null);
     try {
+      // Simulate driver market before advancing
+      await simulateDriverMarket(selectedSaveId);
       await advanceSeason(selectedSaveId);
       await loadSaveData(selectedSaveId);
     } catch {
       setError("Failed to advance to next season.");
+    } finally {
+      setPerforming(false);
+    }
+  }
+
+  async function handleF1Decision(accept: boolean, teamId?: string) {
+    if (!selectedSaveId) return;
+    setPerforming(true);
+    setError(null);
+    try {
+      await makeF1Decision(selectedSaveId, accept, teamId);
+      await loadSaveData(selectedSaveId);
+    } catch {
+      setError("Failed to process F1 decision.");
     } finally {
       setPerforming(false);
     }
@@ -185,7 +210,9 @@ export function BetweenRaceClient() {
       {save?.phase === "offseason" && seasonSummary ? (
         <SeasonSummaryPanel
           summary={seasonSummary}
+          f1Offers={f1Offers}
           onAdvance={handleAdvanceSeason}
+          onF1Decision={handleF1Decision}
           advancing={performing}
         />
       ) : save?.phase !== "between_races" ? (
@@ -514,11 +541,15 @@ function ActivityCard({
 
 function SeasonSummaryPanel({
   summary,
+  f1Offers,
   onAdvance,
+  onF1Decision,
   advancing,
 }: {
   summary: SeasonSummary;
+  f1Offers: F1OffersResponse | null;
   onAdvance: () => void;
+  onF1Decision: (accept: boolean, teamId?: string) => void;
   advancing: boolean;
 }) {
   const getRatingColor = (rating: string) => {
@@ -530,6 +561,12 @@ function SeasonSummaryPanel({
       case "poor": return "#ef4444";
       default: return "var(--muted)";
     }
+  };
+
+  const getLikelihoodColor = (likelihood: number) => {
+    if (likelihood >= 70) return "#22c55e";
+    if (likelihood >= 40) return "#eab308";
+    return "#ef4444";
   };
 
   return (
@@ -592,6 +629,64 @@ function SeasonSummaryPanel({
         </section>
       )}
 
+      {/* F1 Offers */}
+      {f1Offers && f1Offers.hasOffers && (
+        <section className="panel" style={{ borderColor: "#22c55e", borderWidth: 2 }}>
+          <h2>F1 Opportunities</h2>
+          <p className="lede">Your F2 performance has attracted F1 interest!</p>
+          <div style={{ marginTop: 16 }}>
+            {f1Offers.offers.map((offer) => (
+              <div
+                key={offer.teamId}
+                style={{
+                  padding: "16px",
+                  marginBottom: "12px",
+                  background: "var(--panel-bg)",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <h3 style={{ margin: 0 }}>{offer.teamName}</h3>
+                    <p style={{ margin: "4px 0", color: "var(--muted)", fontSize: "0.875rem" }}>
+                      Car Performance: {offer.carPerformance}
+                      {offer.isAcademyTeam && " • Your Academy Team"}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <span
+                      style={{
+                        color: getLikelihoodColor(offer.likelihood),
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {offer.likelihood}% chance
+                    </span>
+                  </div>
+                </div>
+                <button
+                  className="primary-button"
+                  onClick={() => onF1Decision(true, offer.teamId)}
+                  disabled={advancing}
+                  style={{ marginTop: 12, width: "100%" }}
+                >
+                  Accept F1 Seat
+                </button>
+              </div>
+            ))}
+            <button
+              className="secondary-button"
+              onClick={() => onF1Decision(false)}
+              disabled={advancing}
+              style={{ width: "100%", marginTop: 8 }}
+            >
+              Stay in F2 Another Season
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Final Standings */}
       <section className="panel">
         <h2>Final Championship Standings</h2>
@@ -639,22 +734,24 @@ function SeasonSummaryPanel({
         <p style={{ color: "var(--muted)" }}>{summary.teamChampion.points} points</p>
       </section>
 
-      {/* Advance Button */}
-      <section className="panel" style={{ textAlign: "center" }}>
-        <button
-          className="primary-button"
-          onClick={onAdvance}
-          disabled={advancing}
-          style={{ padding: "12px 24px", fontSize: "1.1rem" }}
-        >
-          {advancing ? (
-            <Loader2 size={20} className="spin" />
-          ) : (
-            <FastForward size={20} />
-          )}
-          {advancing ? "Advancing..." : "Start Next Season"}
-        </button>
-      </section>
+      {/* Advance Button - only show if no F1 offers or player has already decided */}
+      {(!f1Offers || !f1Offers.hasOffers) && (
+        <section className="panel" style={{ textAlign: "center" }}>
+          <button
+            className="primary-button"
+            onClick={onAdvance}
+            disabled={advancing}
+            style={{ padding: "12px 24px", fontSize: "1.1rem" }}
+          >
+            {advancing ? (
+              <Loader2 size={20} className="spin" />
+            ) : (
+              <FastForward size={20} />
+            )}
+            {advancing ? "Advancing..." : "Start Next Season"}
+          </button>
+        </section>
+      )}
     </>
   );
 }
