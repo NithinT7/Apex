@@ -213,6 +213,105 @@ select {
   margin-top: 28px;
 }
 
+.viewer-stack {
+  display: grid;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.control-panel {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr minmax(180px, 220px);
+}
+
+.control-panel label {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+}
+
+.hero-panel h2 {
+  font-size: 28px;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.eyebrow-text {
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.timing-table {
+  border-collapse: collapse;
+  color: var(--muted);
+  width: 100%;
+}
+
+.timing-table td {
+  border-top: 1px solid var(--border);
+  padding: 10px 6px;
+}
+
+.timing-table td:first-child,
+.timing-table td:last-child {
+  color: var(--text);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.prompt-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.prompt-card {
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.prompt-card p {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0 0 8px;
+}
+
+.prompt-card h3 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+
+.prompt-card span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.lap-feed {
+  display: grid;
+  gap: 10px;
+}
+
+.lap-feed article {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+}
+
+.lap-feed span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .spin {
   animation: spin 900ms linear infinite;
 }
@@ -225,6 +324,10 @@ select {
 
 @media (max-width: 760px) {
   .creation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .control-panel {
     grid-template-columns: 1fr;
   }
 }
