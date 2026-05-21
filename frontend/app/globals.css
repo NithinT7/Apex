@@ -39,3 +39,50 @@ select {
   max-width: 1120px;
   padding: 32px 24px;
 }
+
+.eyebrow-link {
+  color: var(--accent-strong);
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.55;
+  max-width: 720px;
+}
+
+.panel-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-top: 28px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.panel h2 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+
+.panel p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.compact-list {
+  color: var(--muted);
+  line-height: 1.8;
+  margin: 0;
+  padding-left: 20px;
+}

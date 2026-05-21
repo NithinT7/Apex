@@ -119,3 +119,93 @@ export type DataBootstrap = {
   tracks: Track[];
   f2Calendar: CalendarRound[];
 };
+
+export type CareerPhase = "preseason" | "race_week" | "between_races" | "offseason";
+
+export type AcademyState = {
+  academyId: string;
+  trust: number;
+  juniorDepth: string[];
+  seatOpenings: number;
+  politicalStability: number;
+};
+
+export type ChampionshipEntry = {
+  driverId: string;
+  points: number;
+  wins: number;
+  podiums: number;
+  poles: number;
+  fastestLaps: number;
+  dnfs: number;
+  penalties: number;
+  averageQualifying: number;
+  averageFinish: number;
+};
+
+export type ChampionshipState = {
+  driverStandings: ChampionshipEntry[];
+  teamStandings: Record<string, number>;
+};
+
+export type NewsItem = {
+  id: string;
+  date: string;
+  category: "race" | "media" | "academy" | "rumor" | "contract" | "incident" | "system";
+  headline: string;
+  body: string;
+  linkedDriverIds: string[];
+  importance: number;
+};
+
+export type Rivalry = {
+  rivalDriverId: string;
+  type: "teammate" | "academy" | "championship" | "media" | "clean" | "dirty";
+  intensity: number;
+  respect: number;
+  incidentHistory: number;
+  mediaAttention: number;
+  championshipStakes: number;
+  academySeatConflict: boolean;
+};
+
+export type Contract = {
+  id: string;
+  driverId: string;
+  teamId: string;
+  role: "f1_race_seat" | "f1_reserve" | "f2_race_seat" | "academy_deal" | "loan_seat";
+  startSeason: number;
+  lengthYears: number;
+  active: boolean;
+};
+
+export type SaveGame = {
+  saveId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  currentDate: string;
+  season: number;
+  phase: CareerPhase;
+  playerDriverId: string | null;
+  drivers: Driver[];
+  teams: Team[];
+  academies: Academy[];
+  academyStates: AcademyState[];
+  calendar: CalendarRound[];
+  standings: ChampionshipState;
+  news: NewsItem[];
+  rivalries: Rivalry[];
+  contracts: Contract[];
+  randomSeed: number;
+  eventFlags: Record<string, boolean>;
+};
+
+export type SaveSummary = {
+  saveId: string;
+  name: string;
+  updatedAt: string;
+  season: number;
+  phase: CareerPhase;
+  playerDriverId: string | null;
+};

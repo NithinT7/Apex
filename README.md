@@ -32,3 +32,15 @@ Phase 1 data foundation is implemented:
   - `GET /data/academies`
   - `GET /data/tracks`
   - `GET /data/calendar/f2`
+
+Phase 2 save-game foundation is implemented:
+
+- JSON save snapshots under `backend/saves`.
+- Save files include current date, phase, rosters, teams, academy state,
+  calendar, standings shell, news, contracts, rivalries, random seed, and event
+  flags.
+- FastAPI save endpoints:
+  - `POST /saves`
+  - `GET /saves`
+  - `GET /saves/{save_id}`
+  - `DELETE /saves/{save_id}`
