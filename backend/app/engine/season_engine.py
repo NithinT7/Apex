@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+import random
 from typing import Literal
 
 from app.data.loaders import get_f1_calendar, get_f2_calendar
+from app.engine.development_engine import apply_start_of_season_development, f1_development_cap
 from app.models.save_game import (
     ChampionshipEntry,
     ChampionshipState,
@@ -14,11 +16,142 @@ from app.models.save_game import (
     NewsItem,
     SaveGame,
 )
+from app.models.team import Team
 
 
 def is_season_complete(save: SaveGame) -> bool:
     """Check if all rounds in the calendar have been completed."""
     return all(r.completed for r in save.calendar)
+
+
+def clamp_rating(value: int) -> int:
+    return max(55, min(99, value))
+
+
+def apply_in_season_team_development(save: SaveGame, completed_rounds: int) -> tuple[SaveGame, list[NewsItem]]:
+    if completed_rounds <= 0 or completed_rounds % 4 != 0:
+        return save, []
+
+    rng = random.Random(f"{save.random_seed}:{save.season}:development:{completed_rounds}")
+    updated_teams: list[Team] = []
+    movers: list[tuple[str, int]] = []
+    for team in save.teams:
+        chance = team.development_rate + team.financial_health * 0.25
+        delta = 0
+        if rng.randint(1, 120) <= chance:
+            delta += rng.choice([1, 1, 2])
+        if rng.randint(1, 100) <= max(4, 24 - team.financial_health // 4):
+            delta -= 1
+        if team.series == "F1" and rng.randint(1, 100) <= 14:
+            delta += rng.choice([-1, 1])
+        if delta:
+            movers.append((team.name, delta))
+        updated_teams.append(team.model_copy(update={"car_performance": clamp_rating(team.car_performance + delta)}))
+
+    news: list[NewsItem] = []
+    if movers:
+        top_movers = sorted(movers, key=lambda item: abs(item[1]), reverse=True)[:3]
+        body = "; ".join(f"{name} {'gains' if delta > 0 else 'loses'} {abs(delta)} performance" for name, delta in top_movers)
+        news.append(
+            NewsItem(
+                id=f"team_development_{uuid.uuid4().hex[:8]}",
+                date=save.current_date,
+                category="system",
+                headline="Development packages shift the competitive order",
+                body=body,
+                importance=3,
+            )
+        )
+
+    return save.model_copy(update={"teams": updated_teams}), news
+
+
+def apply_driver_development(save: SaveGame, completed_rounds: int) -> tuple[SaveGame, list[NewsItem]]:
+    if completed_rounds <= 0 or completed_rounds % 3 != 0:
+        return save, []
+
+    rng = random.Random(f"{save.random_seed}:{save.season}:driver_development:{completed_rounds}")
+    updated_drivers = []
+    movers: list[str] = []
+    development_attrs = ["pace", "qualifying", "racecraft", "consistency", "tire_management", "technical_feedback"]
+    for driver in save.drivers:
+        chance = max(5, min(75, driver.hidden.development_rate + max(0, driver.hidden.potential - _driver_core_rating(driver)) * 2))
+        if rng.randint(1, 100) <= chance:
+            attr_name = rng.choice(development_attrs)
+            current = getattr(driver.attributes, attr_name)
+            cap = f1_development_cap(driver, attr_name) if driver.series == "F1" else min(99, driver.hidden.adaptation_ceiling)
+            if current < cap:
+                updated_attrs = driver.attributes.model_copy(update={attr_name: min(cap, current + 1)})
+                updated_drivers.append(driver.model_copy(update={"attributes": updated_attrs}))
+                if driver.series in {"F1", "F2"} and rng.random() < 0.08:
+                    movers.append(driver.name)
+                continue
+        updated_drivers.append(driver)
+
+    news: list[NewsItem] = []
+    if movers:
+        news.append(
+            NewsItem(
+                id=f"driver_development_{uuid.uuid4().hex[:8]}",
+                date=save.current_date,
+                category="system",
+                headline="Young drivers show development gains",
+                body=", ".join(movers[:3]) + " have taken visible steps forward.",
+                importance=2,
+            )
+        )
+    return save.model_copy(update={"drivers": updated_drivers}), news
+
+
+def _driver_core_rating(driver) -> int:
+    attrs = driver.attributes
+    return round((attrs.pace + attrs.qualifying + attrs.racecraft + attrs.consistency) / 4)
+
+
+def apply_offseason_team_evolution(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
+    rng = random.Random(f"{save.random_seed}:{save.season}:offseason_team_evolution")
+    regulation_reset = (save.season + 1) % 4 == 0
+    updated_teams: list[Team] = []
+    for team in save.teams:
+        if regulation_reset and team.series == "F1":
+            field_pull = round((82 - team.car_performance) * 0.45)
+            reset_swing = rng.randint(-9, 9)
+            performance_delta = field_pull + reset_swing + (team.development_rate - 80) // 8
+        else:
+            performance_delta = rng.randint(-3, 4) + (team.development_rate - 78) // 12
+
+        reliability_delta = rng.randint(-2, 3) + (team.development_rate - 78) // 18
+        strategy_delta = rng.choice([-1, 0, 0, 1])
+        updated_teams.append(
+            team.model_copy(
+                update={
+                    "car_performance": clamp_rating(team.car_performance + performance_delta),
+                    "reliability": clamp_rating(team.reliability + reliability_delta),
+                    "strategy": clamp_rating(team.strategy + strategy_delta),
+                }
+            )
+        )
+
+    headline = (
+        "Major regulation reset shakes up the F1 grid"
+        if regulation_reset
+        else "Teams reveal offseason development gains"
+    )
+    body = (
+        "New technical rules have compressed some gaps and created room for surprise movers."
+        if regulation_reset
+        else "Winter upgrades change the competitive picture heading into the new season."
+    )
+    return save.model_copy(update={"teams": updated_teams}), [
+        NewsItem(
+            id=f"offseason_development_{uuid.uuid4().hex[:8]}",
+            date=save.current_date,
+            category="system",
+            headline=headline,
+            body=body,
+            importance=5 if regulation_reset else 3,
+        )
+    ]
 
 
 def get_championship_position(save: SaveGame, driver_id: str) -> int | None:
@@ -454,6 +587,8 @@ def prepare_next_season(save: SaveGame) -> SaveGame:
     if save.phase != "offseason":
         return save
 
+    save = apply_start_of_season_development(save)
+
     # Increment season
     new_season = save.season + 1
 
@@ -499,6 +634,13 @@ def prepare_next_season(save: SaveGame) -> SaveGame:
         team_standings={team_id: 0 for team_id in series_team_ids},
     )
 
+    f1_driver_ids = {d.id for d in save.drivers if d.series == "F1"}
+    f1_team_ids = {t.id for t in save.teams if t.series == "F1"}
+    new_f1_standings = ChampionshipState(
+        driver_standings=[ChampionshipEntry(driver_id=driver_id) for driver_id in f1_driver_ids],
+        team_standings={team_id: 0 for team_id in f1_team_ids},
+    )
+
     # Age drivers
     new_drivers = [
         d.model_copy(update={"age": d.age + 1}) for d in save.drivers
@@ -517,8 +659,10 @@ def prepare_next_season(save: SaveGame) -> SaveGame:
             "current_date": new_date,
             "calendar": new_calendar,
             "standings": new_standings,
+            "f1_standings": new_f1_standings,
             "drivers": new_drivers,
             "weekend_results": new_weekend_results,
+            "f1_weekend_results": [],
             "active_race": None,
             "event_flags": {
                 **save.event_flags,
@@ -540,7 +684,9 @@ def advance_to_next_season(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
     news = []
 
     # Prepare next season
-    updated_save = prepare_next_season(save)
+    evolved_save, team_news = apply_offseason_team_evolution(save)
+    news.extend(team_news)
+    updated_save = prepare_next_season(evolved_save)
 
     # Generate preseason news
     player = next((d for d in updated_save.drivers if d.id == updated_save.player_driver_id), None)
