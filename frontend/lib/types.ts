@@ -205,6 +205,13 @@ export type QualifyingClassification = {
   note: string;
 };
 
+export type QualifyingSegment = {
+  segment: "Q1" | "Q2" | "Q3";
+  classification: QualifyingClassification[];
+  eliminated: string[];
+  stories: string[];
+};
+
 export type RunningOrderEntry = {
   position: number;
   driverId: string;
@@ -424,6 +431,7 @@ export type WeekendPrep = {
     trackId: string;
     weather: WeatherState;
     classification: QualifyingClassification[];
+    segments?: QualifyingSegment[] | null;
   };
   sprintGrid: string[];
   featureGrid: string[];

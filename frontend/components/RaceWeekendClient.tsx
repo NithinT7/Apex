@@ -100,7 +100,11 @@ function getDriverInitials(name: string): string {
 type InteractivePhase =
   | "idle"
   | "preparing"
-  | "prep_complete"
+  | "practice_complete"
+  | "quali_q1"
+  | "quali_q2"
+  | "quali_q3"
+  | "quali_complete"
   | "sprint_running"
   | "sprint_decision"
   | "sprint_complete"
@@ -174,10 +178,26 @@ export function RaceWeekendClient() {
     try {
       const prep = await prepareWeekend(selectedSaveId, selectedRoundId);
       setWeekendPrep(prep);
-      setInteractivePhase("prep_complete");
+      // Start with practice complete, then step through qualifying
+      setInteractivePhase("practice_complete");
     } catch {
       setError("Failed to prepare weekend. It may already be complete.");
       setInteractivePhase("idle");
+    }
+  }
+
+  function handleAdvanceQualifying() {
+    if (!weekendPrep) return;
+    const hasSegments = weekendPrep.qualifying.segments && weekendPrep.qualifying.segments.length > 0;
+
+    if (interactivePhase === "practice_complete") {
+      setInteractivePhase(hasSegments ? "quali_q1" : "quali_complete");
+    } else if (interactivePhase === "quali_q1") {
+      setInteractivePhase("quali_q2");
+    } else if (interactivePhase === "quali_q2") {
+      setInteractivePhase("quali_q3");
+    } else if (interactivePhase === "quali_q3") {
+      setInteractivePhase("quali_complete");
     }
   }
 
@@ -206,7 +226,7 @@ export function RaceWeekendClient() {
       setActiveRace(state);
     } catch {
       setError(`Failed to start ${raceType} race.`);
-      setInteractivePhase("prep_complete");
+      setInteractivePhase("quali_complete");
     }
   }
 
@@ -370,6 +390,16 @@ export function RaceWeekendClient() {
 
       {error && <p className="tag neg" style={{ marginBottom: 20 }}>{error}</p>}
 
+      {/* Pre-race preview when idle */}
+      {!weekend && interactivePhase === "idle" && selectedRound && (
+        <PreRacePreview
+          round={selectedRound}
+          save={save}
+          driverMap={driverMap}
+          teamMap={teamMap}
+        />
+      )}
+
       {/* Interactive Controls */}
       {!weekend && interactivePhase !== "idle" && (
         <InteractiveControls
@@ -385,6 +415,7 @@ export function RaceWeekendClient() {
           onStartSprint={() => handleStartRace("sprint")}
           onStartFeature={() => handleStartRace("feature")}
           onAdvanceLap={handleAdvanceLap}
+          onAdvanceQualifying={handleAdvanceQualifying}
           onFinalize={handleFinalizeWeekend}
           onSubmitDecision={handleSubmitDecision}
           onAutoComplete={handleAutoComplete}
@@ -411,6 +442,7 @@ function InteractiveControls({
   onStartSprint,
   onStartFeature,
   onAdvanceLap,
+  onAdvanceQualifying,
   onFinalize,
   onSubmitDecision,
   onAutoComplete,
@@ -428,6 +460,7 @@ function InteractiveControls({
   onStartSprint: () => void;
   onStartFeature: () => void;
   onAdvanceLap: () => void;
+  onAdvanceQualifying: () => void;
   onFinalize: () => void;
   onSubmitDecision: (choiceIndex: number) => void;
   onAutoComplete: () => void;
@@ -444,15 +477,8 @@ function InteractiveControls({
     );
   }
 
-  if (phase === "prep_complete" && weekendPrep) {
-    const readyTitle = weekendPrep.hasSprint ? "Ready for Sprint Race" : "Ready for Main Race";
-    const readyCopy = weekendPrep.hasSprint
-      ? weekendPrep.sprintGrid.length === weekendPrep.featureGrid.length &&
-        weekendPrep.sprintGrid.slice(0, 10).join("|") === weekendPrep.featureGrid.slice(0, 10).join("|")
-        ? "Sprint grid follows the sprint qualifying order. Make decisions during the race to affect your result."
-        : "Sprint grid reverses the qualifying top 10. Make decisions during the race to affect your result."
-      : "This round has no sprint race. The main race grid is based on qualifying results.";
-
+  // Practice complete - show practice results, advance to qualifying
+  if (phase === "practice_complete" && weekendPrep) {
     return (
       <>
         <BroadcastWeekendIntro
@@ -462,7 +488,7 @@ function InteractiveControls({
           playerDriverId={playerDriverId}
         />
 
-        <Section title="Practice">
+        <Section title="Practice Complete">
           <SessionResult
             label="Practice"
             session={weekendPrep.practice}
@@ -471,7 +497,95 @@ function InteractiveControls({
           />
         </Section>
 
-        <Section title="Qualifying">
+        <Section>
+          <div className="card" style={{ textAlign: "center", padding: 24 }}>
+            <p className="t2" style={{ marginBottom: 16 }}>
+              Practice is complete. Time to see who's fastest in qualifying.
+            </p>
+            <button className="btn primary" onClick={onAdvanceQualifying}>
+              Start Qualifying →
+            </button>
+          </div>
+        </Section>
+      </>
+    );
+  }
+
+  // Qualifying segments (Q1, Q2, Q3)
+  if ((phase === "quali_q1" || phase === "quali_q2" || phase === "quali_q3") && weekendPrep) {
+    const segments = weekendPrep.qualifying.segments;
+    const segmentIndex = phase === "quali_q1" ? 0 : phase === "quali_q2" ? 1 : 2;
+    const segment = segments?.[segmentIndex];
+    const segmentLabel = phase === "quali_q1" ? "Q1" : phase === "quali_q2" ? "Q2" : "Q3";
+    const nextLabel = phase === "quali_q1" ? "Q2" : phase === "quali_q2" ? "Q3" : "See Final Grid";
+
+    if (!segment) {
+      // Fallback for F2 (no segments)
+      return (
+        <>
+          <Section title="Qualifying">
+            <SessionResult
+              label="Qualifying"
+              session={weekendPrep.qualifying}
+              driverMap={driverMap}
+              playerDriverId={playerDriverId}
+            />
+          </Section>
+          <Section>
+            <button className="btn primary" onClick={onAdvanceQualifying}>
+              Continue →
+            </button>
+          </Section>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Section title={segmentLabel}>
+          <QualifyingSegmentView
+            segment={segment}
+            driverMap={driverMap}
+            playerDriverId={playerDriverId}
+          />
+        </Section>
+
+        <Section>
+          <div className="card" style={{ textAlign: "center", padding: 24 }}>
+            {segment.eliminated.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div className="t3 small" style={{ marginBottom: 8 }}>ELIMINATED</div>
+                <div className="flex center wrap" style={{ gap: 8 }}>
+                  {segment.eliminated.map((driverId) => {
+                    const driver = driverMap.get(driverId);
+                    return (
+                      <span key={driverId} className="tag neg">
+                        {driver?.name ?? driverId}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <button className="btn primary" onClick={onAdvanceQualifying}>
+              {nextLabel} →
+            </button>
+          </div>
+        </Section>
+      </>
+    );
+  }
+
+  // Qualifying complete - show final grid, ready for race
+  if (phase === "quali_complete" && weekendPrep) {
+    const readyTitle = weekendPrep.hasSprint ? "Ready for Sprint Race" : "Ready for Main Race";
+    const readyCopy = weekendPrep.hasSprint
+      ? "Sprint grid is set. Make decisions during the race to affect your result."
+      : "The grid is set. Make decisions during the race to affect your result.";
+
+    return (
+      <>
+        <Section title="Final Grid">
           <SessionResult
             label="Qualifying"
             session={weekendPrep.qualifying}
@@ -1720,4 +1834,207 @@ function emptySprintResult(prep: WeekendPrep): RaceResult {
     safetyCarLaps: [],
     dnfs: [],
   };
+}
+
+// Qualifying segment view with stories and eliminations
+function QualifyingSegmentView({
+  segment,
+  driverMap,
+  playerDriverId,
+}: {
+  segment: { segment: string; classification: Array<{ position: number; driverId: string; lapTime: number; gapToPole: number; note: string }>; eliminated: string[]; stories: string[] };
+  driverMap: Map<string, Driver>;
+  playerDriverId: string | null;
+}) {
+  const playerEntry = segment.classification.find((e) => e.driverId === playerDriverId);
+
+  return (
+    <div>
+      {/* Stories from this segment */}
+      {segment.stories.length > 0 && (
+        <div className="broadcast-session-panel" style={{ marginBottom: 20 }}>
+          <div>
+            <div className="broadcast-kicker">{segment.segment} Highlights</div>
+            {segment.stories.map((story, i) => (
+              <div key={i} className={i === 0 ? "broadcast-title" : "t2"} style={{ marginBottom: i === 0 ? 8 : 4 }}>
+                {story}
+              </div>
+            ))}
+          </div>
+          {playerEntry && (
+            <div className="what-matters">
+              <div className="what-title">Your position</div>
+              <div className="mono strong" style={{ fontSize: 28 }}>P{playerEntry.position}</div>
+              <div className="t3">{playerEntry.gapToPole > 0 ? `+${playerEntry.gapToPole.toFixed(3)}s` : "POLE"}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Classification table */}
+      <div className="table-scroll">
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th style={{ width: 50 }}>Pos</th>
+              <th>Driver</th>
+              <th className="num">Time</th>
+              <th className="num">Gap</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {segment.classification.map((entry) => {
+              const isPlayer = entry.driverId === playerDriverId;
+              const isEliminated = segment.eliminated.includes(entry.driverId);
+              const driver = driverMap.get(entry.driverId);
+              return (
+                <tr key={entry.driverId} className={isPlayer ? "player" : isEliminated ? "eliminated" : ""} style={isEliminated ? { opacity: 0.6 } : undefined}>
+                  <td className="mono strong">P{entry.position}</td>
+                  <td>
+                    <DriverCell name={driver?.name ?? entry.driverId} driverId={entry.driverId} isPlayer={isPlayer} />
+                  </td>
+                  <td className="num mono">{formatLapTime(entry.lapTime)}</td>
+                  <td className="num mono t2">
+                    {entry.gapToPole > 0 ? `+${entry.gapToPole.toFixed(3)}` : "—"}
+                  </td>
+                  <td>
+                    {isEliminated ? (
+                      <span className="tag neg" style={{ fontSize: 10 }}>OUT</span>
+                    ) : (
+                      <span className="tag pos" style={{ fontSize: 10 }}>Q{segment.segment === "Q1" ? "2" : segment.segment === "Q2" ? "3" : ""}</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// Pre-race preview showing news, standings implications, and track info
+function PreRacePreview({
+  round,
+  save,
+  driverMap,
+  teamMap,
+}: {
+  round: CalendarRound;
+  save: { news: Array<{ id: string; headline: string; body: string; category: string; importance: number }>; standings: { driverStandings: Array<{ driverId: string; points: number }> }; playerDriverId: string | null };
+  driverMap: Map<string, Driver>;
+  teamMap: Map<string, Team>;
+}) {
+  const player = save.playerDriverId ? driverMap.get(save.playerDriverId) : null;
+  const playerStanding = save.standings.driverStandings.find((s) => s.driverId === save.playerDriverId);
+  const playerPosition = playerStanding ? save.standings.driverStandings.indexOf(playerStanding) + 1 : null;
+
+  // Get recent relevant news
+  const recentNews = save.news
+    .filter((n) => n.importance >= 2)
+    .slice(-3)
+    .reverse();
+
+  // Championship implications
+  const implications: string[] = [];
+  if (playerPosition === 1) {
+    const gap = save.standings.driverStandings[1]
+      ? playerStanding!.points - save.standings.driverStandings[1].points
+      : 0;
+    implications.push(`You lead the championship by ${gap} points.`);
+    implications.push("A win here extends your advantage.");
+  } else if (playerPosition && playerPosition <= 3) {
+    const leader = save.standings.driverStandings[0];
+    const gap = leader.points - (playerStanding?.points ?? 0);
+    const leaderDriver = driverMap.get(leader.driverId);
+    implications.push(`You're ${gap} points behind ${leaderDriver?.name ?? "the leader"}.`);
+    implications.push("A strong result keeps you in the title fight.");
+  } else if (playerPosition) {
+    implications.push(`Currently P${playerPosition} in the championship.`);
+    implications.push("Every point matters to climb the standings.");
+  }
+
+  // Track characteristics
+  const trackInsights: string[] = [];
+  if (round.trackId.includes("monaco") || round.trackId.includes("singapore")) {
+    trackInsights.push("Street circuit - qualifying position is crucial.");
+    trackInsights.push("Overtaking is extremely difficult here.");
+  } else if (round.trackId.includes("monza") || round.trackId.includes("spa")) {
+    trackInsights.push("High-speed circuit with good overtaking opportunities.");
+    trackInsights.push("Slipstream battles expected on the straights.");
+  } else if (round.trackId.includes("silverstone") || round.trackId.includes("suzuka")) {
+    trackInsights.push("Technical circuit that rewards driver skill.");
+    trackInsights.push("High-speed corners test car setup and confidence.");
+  } else {
+    trackInsights.push("Mixed characteristics - setup balance is key.");
+  }
+
+  if (round.hasSprint) {
+    trackInsights.push("Sprint weekend format - extra points available.");
+  }
+
+  return (
+    <>
+      {/* Championship implications */}
+      <Section title="Championship stakes">
+        <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+          <div className="card">
+            <div className="card-title">Going into {round.name}</div>
+            <div style={{ marginTop: 12 }}>
+              {implications.map((imp, i) => (
+                <p key={i} className={i === 0 ? "t1" : "t2"} style={{ marginBottom: 8 }}>
+                  {imp}
+                </p>
+              ))}
+            </div>
+            {playerPosition && (
+              <div style={{ marginTop: 16, padding: "12px 16px", background: "var(--bg-soft)", borderRadius: 8 }}>
+                <div className="flex between center">
+                  <span className="t3">Your position</span>
+                  <span className="mono strong" style={{ fontSize: 20 }}>P{playerPosition}</span>
+                </div>
+                <div className="flex between center" style={{ marginTop: 8 }}>
+                  <span className="t3">Points</span>
+                  <span className="mono">{playerStanding?.points ?? 0}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="card-title">Track notes</div>
+            <ul style={{ marginTop: 12, paddingLeft: 20 }}>
+              {trackInsights.map((insight, i) => (
+                <li key={i} className="t2" style={{ marginBottom: 8 }}>
+                  {insight}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </Section>
+
+      {/* Recent news */}
+      {recentNews.length > 0 && (
+        <Section title="Headlines">
+          <div className="grid cols-3 gap-sm">
+            {recentNews.map((news) => (
+              <div key={news.id} className="card" style={{ padding: 16 }}>
+                <div className="flex between" style={{ marginBottom: 8 }}>
+                  <span className="tag" style={{ fontSize: 10 }}>
+                    {news.category.toUpperCase()}
+                  </span>
+                  {news.importance >= 4 && <span className="tag accent">Breaking</span>}
+                </div>
+                <div style={{ fontWeight: 500, marginBottom: 6 }}>{news.headline}</div>
+                <p className="t2 small">{news.body}</p>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+    </>
+  );
 }

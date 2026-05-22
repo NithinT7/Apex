@@ -13,6 +13,7 @@ from app.models.race import (
     PracticeResult,
     QualifyingClassification,
     QualifyingResult,
+    QualifyingSegment,
     RaceClassification,
     RaceResult,
     RunningOrderEntry,
@@ -59,7 +60,7 @@ def simulate_weekend(save: SaveGame, round_id: str) -> WeekendResult:
     weather = _weather(track, rng)
 
     practice = _simulate_practice(drivers, teams, track, weather, rng)
-    qualifying = _simulate_qualifying(drivers, teams, track, weather, rng)
+    qualifying = _simulate_qualifying(drivers, teams, track, weather, rng, series=calendar_round.series)
     qualifying_order = [entry.driver_id for entry in qualifying.classification]
     sprint_grid = sprint_grid_for_round(calendar_round, qualifying_order)
     sprint = (
@@ -149,21 +150,27 @@ def _simulate_qualifying(
     track: Track,
     weather: WeatherState,
     rng: random.Random,
+    series: str = "F2",
 ) -> QualifyingResult:
+    """Simulate qualifying session. F1 uses Q1/Q2/Q3 knockout format."""
+    if series == "F1":
+        return _simulate_f1_qualifying(drivers, teams, track, weather, rng)
+    return _simulate_f2_qualifying(drivers, teams, track, weather, rng)
+
+
+def _simulate_f2_qualifying(
+    drivers: list[Driver],
+    teams: dict[str, Team],
+    track: Track,
+    weather: WeatherState,
+    rng: random.Random,
+) -> QualifyingResult:
+    """F2 uses a single group qualifying session."""
     rows: list[tuple[float, Driver, str]] = []
     for driver in drivers:
         team = teams[driver.team_id]
-        traffic = rng.random() < 0.08
-        mistake_threshold = (driver.attributes.consistency + driver.attributes.discipline) / 210
-        if driver.attributes.qualifying >= 82 and driver.attributes.pace >= 82:
-            mistake_threshold += 0.12
-        mistake = rng.random() > min(0.92, mistake_threshold)
-        lap_time = _single_lap_time(driver, team, track, weather, rng)
-        if traffic:
-            lap_time += rng.uniform(0.25, 0.85)
-        if mistake:
-            lap_time += rng.uniform(0.35, 1.2)
-        rows.append((lap_time, driver, _qualifying_note(traffic, mistake)))
+        lap_time, note = _qualifying_lap(driver, team, track, weather, rng)
+        rows.append((lap_time, driver, note))
 
     rows.sort(key=lambda row: row[0])
     pole_time = rows[0][0]
@@ -180,7 +187,216 @@ def _simulate_qualifying(
             )
             for index, (lap_time, driver, note) in enumerate(rows, start=1)
         ],
+        segments=None,
     )
+
+
+def _simulate_f1_qualifying(
+    drivers: list[Driver],
+    teams: dict[str, Team],
+    track: Track,
+    weather: WeatherState,
+    rng: random.Random,
+) -> QualifyingResult:
+    """F1 uses knockout qualifying: Q1 (all), Q2 (top 15), Q3 (top 10)."""
+    driver_map = {d.id: d for d in drivers}
+    best_times: dict[str, float] = {}
+    best_notes: dict[str, str] = {}
+    segments: list[QualifyingSegment] = []
+
+    # Q1: All drivers, eliminate bottom 5
+    q1_drivers = list(drivers)
+    q1_results = _run_qualifying_segment(q1_drivers, teams, track, weather, rng, best_times, best_notes)
+    q1_eliminated = [d.driver_id for d in q1_results[15:]]  # P16-P20 eliminated
+    q1_stories = _generate_qualifying_stories("Q1", q1_results, driver_map, q1_eliminated, rng)
+    segments.append(QualifyingSegment(
+        segment="Q1",
+        classification=q1_results,
+        eliminated=q1_eliminated,
+        stories=q1_stories,
+    ))
+
+    # Q2: Top 15 from Q1, eliminate bottom 5
+    q2_driver_ids = [d.driver_id for d in q1_results[:15]]
+    q2_drivers = [driver_map[did] for did in q2_driver_ids]
+    q2_results = _run_qualifying_segment(q2_drivers, teams, track, weather, rng, best_times, best_notes)
+    q2_eliminated = [d.driver_id for d in q2_results[10:]]  # P11-P15 eliminated
+    q2_stories = _generate_qualifying_stories("Q2", q2_results, driver_map, q2_eliminated, rng)
+    segments.append(QualifyingSegment(
+        segment="Q2",
+        classification=q2_results,
+        eliminated=q2_eliminated,
+        stories=q2_stories,
+    ))
+
+    # Q3: Top 10 from Q2, fight for pole
+    q3_driver_ids = [d.driver_id for d in q2_results[:10]]
+    q3_drivers = [driver_map[did] for did in q3_driver_ids]
+    q3_results = _run_qualifying_segment(q3_drivers, teams, track, weather, rng, best_times, best_notes)
+    q3_stories = _generate_qualifying_stories("Q3", q3_results, driver_map, [], rng)
+    segments.append(QualifyingSegment(
+        segment="Q3",
+        classification=q3_results,
+        eliminated=[],
+        stories=q3_stories,
+    ))
+
+    # Build final classification
+    final_order: list[QualifyingClassification] = []
+    pole_time = best_times[q3_results[0].driver_id]
+
+    # Q3 results (P1-P10)
+    for entry in q3_results:
+        final_order.append(QualifyingClassification(
+            position=len(final_order) + 1,
+            driver_id=entry.driver_id,
+            lap_time=best_times[entry.driver_id],
+            gap_to_pole=round(best_times[entry.driver_id] - pole_time, 3),
+            note=best_notes.get(entry.driver_id, ""),
+        ))
+
+    # Q2 eliminated (P11-P15)
+    for driver_id in q2_eliminated:
+        final_order.append(QualifyingClassification(
+            position=len(final_order) + 1,
+            driver_id=driver_id,
+            lap_time=best_times[driver_id],
+            gap_to_pole=round(best_times[driver_id] - pole_time, 3),
+            note=best_notes.get(driver_id, "Out in Q2"),
+        ))
+
+    # Q1 eliminated (P16-P20)
+    for driver_id in q1_eliminated:
+        final_order.append(QualifyingClassification(
+            position=len(final_order) + 1,
+            driver_id=driver_id,
+            lap_time=best_times[driver_id],
+            gap_to_pole=round(best_times[driver_id] - pole_time, 3),
+            note=best_notes.get(driver_id, "Out in Q1"),
+        ))
+
+    return QualifyingResult(
+        track_id=track.id,
+        weather=weather,
+        classification=final_order,
+        segments=segments,
+    )
+
+
+def _run_qualifying_segment(
+    drivers: list[Driver],
+    teams: dict[str, Team],
+    track: Track,
+    weather: WeatherState,
+    rng: random.Random,
+    best_times: dict[str, float],
+    best_notes: dict[str, str],
+) -> list[QualifyingClassification]:
+    """Run a single qualifying segment and update best times."""
+    rows: list[tuple[float, Driver, str]] = []
+    for driver in drivers:
+        team = teams[driver.team_id]
+        lap_time, note = _qualifying_lap(driver, team, track, weather, rng)
+        # Driver may improve on previous best
+        if driver.id not in best_times or lap_time < best_times[driver.id]:
+            best_times[driver.id] = lap_time
+            best_notes[driver.id] = note
+        rows.append((best_times[driver.id], driver, best_notes[driver.id]))
+
+    rows.sort(key=lambda row: row[0])
+    pole_time = rows[0][0]
+    return [
+        QualifyingClassification(
+            position=index,
+            driver_id=driver.id,
+            lap_time=round(lap_time, 3),
+            gap_to_pole=round(lap_time - pole_time, 3),
+            note=note,
+        )
+        for index, (lap_time, driver, note) in enumerate(rows, start=1)
+    ]
+
+
+def _qualifying_lap(
+    driver: Driver,
+    team: Team,
+    track: Track,
+    weather: WeatherState,
+    rng: random.Random,
+) -> tuple[float, str]:
+    """Simulate a single qualifying lap attempt."""
+    traffic = rng.random() < 0.08
+    mistake_threshold = (driver.attributes.consistency + driver.attributes.discipline) / 210
+    if driver.attributes.qualifying >= 82 and driver.attributes.pace >= 82:
+        mistake_threshold += 0.12
+    mistake = rng.random() > min(0.92, mistake_threshold)
+    lap_time = _single_lap_time(driver, team, track, weather, rng)
+    if traffic:
+        lap_time += rng.uniform(0.25, 0.85)
+    if mistake:
+        lap_time += rng.uniform(0.35, 1.2)
+    return lap_time, _qualifying_note(traffic, mistake)
+
+
+def _generate_qualifying_stories(
+    segment: str,
+    results: list[QualifyingClassification],
+    driver_map: dict[str, Driver],
+    eliminated: list[str],
+    rng: random.Random,
+) -> list[str]:
+    """Generate narrative moments from a qualifying segment."""
+    stories: list[str] = []
+
+    if not results:
+        return stories
+
+    # Pole/top position story
+    top_driver = driver_map.get(results[0].driver_id)
+    if top_driver:
+        if segment == "Q3":
+            stories.append(f"{top_driver.name} takes POLE POSITION with a stunning {results[0].lap_time:.3f}!")
+        elif segment == "Q1":
+            stories.append(f"{top_driver.name} tops Q1 and looks comfortable heading into Q2.")
+        else:
+            stories.append(f"{top_driver.name} leads the way in Q2 with a {results[0].lap_time:.3f}.")
+
+    # Close battle story
+    if len(results) >= 2:
+        gap = results[1].gap_to_pole
+        if gap < 0.050:
+            second_driver = driver_map.get(results[1].driver_id)
+            if second_driver and top_driver:
+                stories.append(f"Just {gap:.3f}s separates {top_driver.name} and {second_driver.name}!")
+
+    # Surprise performance
+    for entry in results[:5]:
+        driver = driver_map.get(entry.driver_id)
+        if driver and driver.team_id:
+            # Check if driver is punching above their weight
+            if entry.position <= 3 and driver.attributes.qualifying < 75:
+                stories.append(f"Impressive lap from {driver.name} to put the car in P{entry.position}!")
+                break
+
+    # Elimination drama
+    for driver_id in eliminated[:2]:
+        driver = driver_map.get(driver_id)
+        if driver:
+            if driver.attributes.qualifying >= 80:
+                stories.append(f"Shock exit! {driver.name} knocked out in {segment} after a difficult session.")
+            elif rng.random() < 0.3:
+                stories.append(f"{driver.name} will start from the back after being eliminated in {segment}.")
+
+    # Random drama
+    if rng.random() < 0.15:
+        for entry in results:
+            if "traffic" in entry.note.lower():
+                driver = driver_map.get(entry.driver_id)
+                if driver:
+                    stories.append(f"{driver.name} furious after being blocked on their flying lap!")
+                    break
+
+    return stories[:4]  # Limit to 4 stories per segment
 
 
 def _simulate_race(

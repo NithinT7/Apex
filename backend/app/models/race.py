@@ -42,10 +42,19 @@ class QualifyingClassification(AppModel):
     note: str
 
 
+class QualifyingSegment(AppModel):
+    """Single qualifying segment (Q1, Q2, or Q3)."""
+    segment: Literal["Q1", "Q2", "Q3"]
+    classification: list[QualifyingClassification]
+    eliminated: list[str]  # Driver IDs eliminated in this segment
+    stories: list[str]  # Narrative moments from this segment
+
+
 class QualifyingResult(AppModel):
     track_id: str
     weather: WeatherState
-    classification: list[QualifyingClassification]
+    classification: list[QualifyingClassification]  # Final overall classification
+    segments: list[QualifyingSegment] | None = None  # Q1/Q2/Q3 breakdown (F1 only)
 
 
 class RunningOrderEntry(AppModel):
