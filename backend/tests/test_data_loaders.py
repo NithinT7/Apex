@@ -8,7 +8,8 @@ def test_bootstrap_loads_real_world_data() -> None:
     assert len(bootstrap.f1_drivers) == 22
     assert len(bootstrap.f2_teams) == 11
     assert len(bootstrap.f2_drivers) == 22
-    assert len(bootstrap.academies) >= 8
+    assert len([academy for academy in bootstrap.academies if academy.id != "academy_independent"]) == 5
+    assert any(academy.id == "academy_independent" for academy in bootstrap.academies)
     assert len(bootstrap.f2_calendar) == 14
     assert len(bootstrap.tracks) >= 39
 

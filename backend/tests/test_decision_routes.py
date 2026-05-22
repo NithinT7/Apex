@@ -3,7 +3,10 @@
 from fastapi.testclient import TestClient
 
 from app.api import career_routes, decision_routes, weekend_routes
+from app.data.loaders import get_f1_calendar, get_f1_drivers, get_f1_teams, get_f2_drivers
+from app.engine.decision_engine import _load_internal_state
 from app.main import app
+from app.models.save_game import ChampionshipEntry, ChampionshipState
 from app.save.save_manager import SaveManager
 
 
@@ -26,6 +29,48 @@ def _create_career(client: TestClient) -> str:
     return response.json()["saveId"]
 
 
+def _promote_save_to_f1(manager: SaveManager, save_id: str) -> None:
+    """Move the player into an F1 seat and switch the active calendar."""
+    save = manager.get(save_id)
+    assert save is not None
+
+    f1_team = get_f1_teams()[0]
+    displaced_driver_id = next(
+        driver.id
+        for driver in save.drivers
+        if driver.series == "F1" and driver.team_id == f1_team.id
+    )
+    updated_drivers = []
+    for driver in save.drivers:
+        if driver.id == save.player_driver_id:
+            updated_drivers.append(driver.model_copy(update={"series": "F1", "team_id": f1_team.id}))
+        elif driver.id == displaced_driver_id:
+            updated_drivers.append(driver.model_copy(update={"series": "Reserve"}))
+        else:
+            updated_drivers.append(driver)
+
+    f1_driver_ids = [driver.id for driver in updated_drivers if driver.series == "F1"]
+    f1_team_ids = [team.id for team in save.teams if team.series == "F1"]
+    manager.save(
+        save.model_copy(
+            update={
+                "phase": "race_week",
+                "calendar": get_f1_calendar(),
+                "drivers": updated_drivers,
+                "standings": ChampionshipState(
+                    driver_standings=[
+                        ChampionshipEntry(driver_id=driver_id)
+                        for driver_id in f1_driver_ids
+                    ],
+                    team_standings={team_id: 0 for team_id in f1_team_ids},
+                ),
+                "weekend_results": [],
+                "active_race": None,
+            }
+        )
+    )
+
+
 def test_prepare_weekend_returns_practice_and_qualifying(tmp_path) -> None:
     """Test that prepare_weekend returns practice and qualifying results."""
     manager = SaveManager(tmp_path)
@@ -41,14 +86,17 @@ def test_prepare_weekend_returns_practice_and_qualifying(tmp_path) -> None:
     assert response.status_code == 200
     body = response.json()
 
-    assert body["round_id"] == "f2_2026_round_01"
+    assert body["roundId"] == "f2_2026_round_01"
     assert "practice" in body
     assert "qualifying" in body
-    assert "sprint_grid" in body
-    assert "feature_grid" in body
+    assert "sprintGrid" in body
+    assert "featureGrid" in body
+    assert body["hasSprint"] is True
     assert len(body["qualifying"]["classification"]) == 22
-    assert len(body["sprint_grid"]) == 22
-    assert len(body["feature_grid"]) == 22
+    assert len(body["sprintGrid"]) == 22
+    assert len(body["featureGrid"]) == 22
+    qualifying_order = [row["driverId"] for row in body["qualifying"]["classification"]]
+    assert body["sprintGrid"] == list(reversed(qualifying_order[:10])) + qualifying_order[10:]
 
 
 def test_start_race_returns_active_race_state(tmp_path) -> None:
@@ -75,7 +123,7 @@ def test_start_race_returns_active_race_state(tmp_path) -> None:
     assert body["roundId"] == "f2_2026_round_01"
     assert body["raceType"] == "sprint"
     assert body["currentLap"] == 0
-    assert body["totalLaps"] == 12
+    assert 20 <= body["totalLaps"] <= 32
     assert body["isComplete"] is False
     assert "lapSnapshots" in body
     assert "pendingDecision" in body
@@ -97,8 +145,8 @@ def test_start_race_requires_prepare(tmp_path) -> None:
     assert "not prepared" in response.json()["detail"].lower()
 
 
-def test_simulate_to_decision_advances_race(tmp_path) -> None:
-    """Test that simulate_to_decision advances the race until a decision or completion."""
+def test_simulate_advances_one_lap(tmp_path) -> None:
+    """Test that the interactive simulate endpoint advances a single lap."""
     manager = SaveManager(tmp_path)
     career_routes.manager = manager
     decision_routes.manager = manager
@@ -117,9 +165,43 @@ def test_simulate_to_decision_advances_race(tmp_path) -> None:
     assert response.status_code == 200
     body = response.json()
 
-    # Should either have a pending decision or be complete (camelCase)
-    assert body["currentLap"] > 0 or body["isComplete"] or body["pendingDecision"] is not None
-    assert len(body["lapSnapshots"]) > 0
+    assert body["currentLap"] == 1
+    assert len(body["lapSnapshots"]) == 1
+    leader = body["lapSnapshots"][0]["runningOrder"][0]
+    assert leader["currentLapTime"] is not None
+    assert leader["bestLapTime"] is not None
+    assert leader["previousLapTime"] is None
+
+
+def test_player_push_decision_only_affects_next_lap(tmp_path) -> None:
+    manager = SaveManager(tmp_path)
+    career_routes.manager = manager
+    decision_routes.manager = manager
+    weekend_routes.manager = manager
+    client = TestClient(app)
+
+    save_id = _create_career(client)
+    client.post(f"/career/{save_id}/race/f2_2026_round_01/prepare")
+    client.post(f"/career/{save_id}/race/f2_2026_round_01/sprint/start")
+    state = client.post(f"/career/{save_id}/race/f2_2026_round_01/sprint/simulate").json()
+    assert state["pendingDecision"] is not None
+
+    decision_id = state["pendingDecision"]["prompt"]["id"]
+    response = client.post(
+        f"/career/{save_id}/race/f2_2026_round_01/sprint/decide",
+        json={"decisionId": decision_id, "choiceIndex": 2},
+    )
+    assert response.status_code == 200
+    save = manager.get(save_id)
+    internal_state = _load_internal_state(save, "f2_2026_round_01", "sprint")
+    player = next(runner for runner in internal_state.runners if runner.driver.id == save.player_driver_id)
+    assert player.modifier_laps_remaining == 1
+
+    client.post(f"/career/{save_id}/race/f2_2026_round_01/sprint/simulate")
+    internal_state = _load_internal_state(save, "f2_2026_round_01", "sprint")
+    player = next(runner for runner in internal_state.runners if runner.driver.id == save.player_driver_id)
+    assert player.modifier_laps_remaining == 0
+    assert player.pace_modifier == 0
 
 
 def test_submit_decision_clears_pending_decision(tmp_path) -> None:
@@ -176,7 +258,7 @@ def test_auto_complete_finishes_race(tmp_path) -> None:
 
     # RaceResult uses camelCase
     assert body["sessionType"] == "sprint"
-    assert body["totalLaps"] == 12
+    assert 20 <= body["totalLaps"] <= 32
     assert len(body["classification"]) == 22
     assert "lapLog" in body
 
@@ -275,7 +357,7 @@ def test_full_interactive_race_flow(tmp_path) -> None:
 
     # Prepare weekend
     prep = client.post(f"/career/{save_id}/race/f2_2026_round_01/prepare").json()
-    assert prep["round_id"] == "f2_2026_round_01"
+    assert prep["roundId"] == "f2_2026_round_01"
 
     # Sprint race
     client.post(f"/career/{save_id}/race/f2_2026_round_01/sprint/start")
@@ -331,3 +413,98 @@ def test_full_interactive_race_flow(tmp_path) -> None:
     assert final["calendar"][0]["completed"] is True
     assert len(final["weekendResults"]) == 1
     assert sprint_decisions >= 1 or feature_decisions >= 1  # Should have at least some decisions
+
+
+def test_interactive_f1_weekend_uses_f1_field_and_points(tmp_path) -> None:
+    """Interactive race endpoints should follow the active F1 calendar/field."""
+    manager = SaveManager(tmp_path)
+    career_routes.manager = manager
+    decision_routes.manager = manager
+    weekend_routes.manager = manager
+    client = TestClient(app)
+
+    save_id = _create_career(client)
+    _promote_save_to_f1(manager, save_id)
+
+    prep = client.post(f"/career/{save_id}/race/f1_2026_round_01/prepare")
+    assert prep.status_code == 200
+    prep_body = prep.json()
+    expected_f1_field_size = len(get_f1_drivers())
+    f2_driver_ids = {driver.id for driver in get_f2_drivers()}
+
+    assert len(prep_body["qualifying"]["classification"]) == expected_f1_field_size
+    assert prep_body["hasSprint"] is False
+    assert prep_body["sprintGrid"] == []
+
+    sprint_start = client.post(f"/career/{save_id}/race/f1_2026_round_01/sprint/start")
+    assert sprint_start.status_code == 400
+    assert "does not have a sprint" in sprint_start.json()["detail"].lower()
+
+    feature_start = client.post(f"/career/{save_id}/race/f1_2026_round_01/feature/start")
+    assert feature_start.status_code == 200
+    assert 45 <= feature_start.json()["totalLaps"] <= 78
+
+    feature_result = client.post(
+        f"/career/{save_id}/race/f1_2026_round_01/feature/auto-complete"
+    )
+    assert feature_result.status_code == 200
+    feature_body = feature_result.json()
+
+    assert feature_body["classification"][0]["points"] == 25
+    assert len(feature_body["classification"]) == expected_f1_field_size
+    assert not any(row["driverId"] in f2_driver_ids for row in feature_body["classification"])
+    assert all(row["pitStops"] >= 1 for row in feature_body["classification"] if row["status"] == "running")
+
+    track_id = prep_body["practice"]["trackId"]
+    sprint_body = {
+        "raceId": f"{track_id}_sprint",
+        "sessionType": "sprint",
+        "trackId": track_id,
+        "totalLaps": 0,
+        "startingGrid": [],
+        "classification": [],
+        "lapLog": [],
+        "decisionPrompts": [],
+        "safetyCarLaps": [],
+        "dnfs": [],
+    }
+
+    final = client.post(
+        f"/career/{save_id}/race/f1_2026_round_01/finalize",
+        json={"sprint": sprint_body, "feature": feature_body},
+    )
+    assert final.status_code == 200
+    final_body = final.json()
+    assert final_body["calendar"][0]["series"] == "F1"
+    assert final_body["calendar"][0]["completed"] is True
+    assert all(team_id.startswith("f1_") for team_id in final_body["standings"]["teamStandings"])
+
+
+def test_interactive_f1_sprint_round_uses_non_reversed_grid(tmp_path) -> None:
+    manager = SaveManager(tmp_path)
+    career_routes.manager = manager
+    decision_routes.manager = manager
+    weekend_routes.manager = manager
+    client = TestClient(app)
+
+    save_id = _create_career(client)
+    _promote_save_to_f1(manager, save_id)
+    save = manager.get(save_id)
+    assert save is not None
+    updated_calendar = [
+        calendar_round.model_copy(update={"completed": calendar_round.id == "f1_2026_round_01"})
+        for calendar_round in save.calendar
+    ]
+    manager.save(save.model_copy(update={"calendar": updated_calendar}))
+
+    prep = client.post(f"/career/{save_id}/race/f1_2026_round_02/prepare")
+    assert prep.status_code == 200
+    prep_body = prep.json()
+    qualifying_order = [row["driverId"] for row in prep_body["qualifying"]["classification"]]
+
+    assert prep_body["hasSprint"] is True
+    assert prep_body["sprintGrid"] == qualifying_order
+
+    sprint_start = client.post(f"/career/{save_id}/race/f1_2026_round_02/sprint/start")
+    assert sprint_start.status_code == 200
+    assert 18 <= sprint_start.json()["totalLaps"] <= 28

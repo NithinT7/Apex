@@ -46,7 +46,8 @@ def test_create_career_inserts_player_into_f2_save(tmp_path) -> None:
     assert len(body["drivers"]) == 44
     assert len(f2_drivers) == 22
     assert player["teamId"] == "f2_prema"
+    assert player["driverNumber"] == 27
     assert player["academyId"] == "academy_ferrari"
-    assert player["attributes"]["pace"] == 81
-    assert player["attributes"]["qualifying"] == 80
+    assert player["attributes"]["pace"] == 85
+    assert player["attributes"]["qualifying"] == 86
     assert any(news["id"] == "player_announced" for news in body["news"])

@@ -168,6 +168,47 @@ def test_skip_to_race_week_transitions_phase(tmp_path) -> None:
     assert body["phase"] == "race_week"
 
 
+def test_development_points_can_be_spent_between_races(tmp_path) -> None:
+    manager = SaveManager(tmp_path)
+    career_routes.manager = manager
+    weekend_routes.manager = manager
+    activity_routes.manager = manager
+    client = TestClient(app)
+
+    save = client.post(
+        "/career/new",
+        json={
+            "name": "Dev Driver",
+            "nationality": "British",
+            "age": 18,
+            "driverNumber": 27,
+            "backgroundId": "karting_prodigy",
+            "archetypeId": "one_lap_monster",
+            "teamId": "f2_prema",
+            "academyId": "academy_ferrari",
+            "difficulty": "realistic",
+        },
+    ).json()
+
+    raced = client.post(f"/career/{save['saveId']}/weekend/next/simulate").json()
+    assert raced["development"]["availablePoints"] >= 1
+
+    status = client.get(f"/career/{save['saveId']}/activities/development")
+    assert status.status_code == 200
+    body = status.json()
+    assert body["availablePoints"] == raced["development"]["availablePoints"]
+    assert any(skill["id"] == "starts_1" for skill in body["skills"])
+    assert all("maxRank" in skill for skill in body["skills"])
+
+    before_starts = next(d for d in raced["drivers"] if d["id"] == "player_driver")["attributes"]["starts"]
+    spend = client.post(f"/career/{save['saveId']}/activities/development/starts_1")
+    assert spend.status_code == 200
+    after = spend.json()
+    after_starts = next(d for d in after["drivers"] if d["id"] == "player_driver")["attributes"]["starts"]
+    assert after_starts == before_starts + 1
+    assert after["development"]["spentPoints"]["starts_1"] == 1
+
+
 def test_get_player_status_returns_stats(tmp_path) -> None:
     """Test that player status endpoint returns driver stats."""
     manager = SaveManager(tmp_path)

@@ -13,6 +13,9 @@ def test_create_list_get_and_delete_save(tmp_path) -> None:
     assert len(save.drivers) == 44
     assert len(save.calendar) == 14
     assert save.standings.driver_standings
+    assert save.f1_standings is not None
+    assert save.f1_standings.driver_standings
+    assert save.event_flags["race_length_mode"] == "authentic_scaled"
     assert (tmp_path / f"{save.save_id}.json").exists()
 
     summaries = manager.list()

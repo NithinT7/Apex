@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from app.api import activity_routes, career_routes, weekend_routes, season_routes
+from app.engine.development_engine import get_development_status, spend_development_point
 from app.engine.season_engine import (
     get_championship_position,
     get_player_season_summary,
@@ -14,6 +15,7 @@ from app.engine.season_engine import (
     transition_to_offseason,
 )
 from app.main import app
+from app.models.save_game import DevelopmentState
 from app.save.save_manager import SaveManager
 
 
@@ -135,6 +137,21 @@ class TestTransitionToOffseason:
         assert updated_save.event_flags.get("season_complete") is True
         assert len(news) > 0
 
+    def test_offseason_save_reloads_with_champion_event_flag(self, tmp_path):
+        client, manager, save_id = _create_career(tmp_path)
+        save = manager.get(save_id)
+
+        updated_calendar = [r.model_copy(update={"completed": True}) for r in save.calendar]
+        save = save.model_copy(update={"calendar": updated_calendar})
+
+        updated_save, _ = transition_to_offseason(save)
+        manager.save(updated_save)
+        reloaded = manager.get(save_id)
+
+        assert reloaded is not None
+        assert reloaded.phase == "offseason"
+        assert isinstance(reloaded.event_flags[f"season_{save.season}_champion"], str)
+
     def test_does_not_transition_when_incomplete(self, tmp_path):
         client, manager, save_id = _create_career(tmp_path)
         save = manager.get(save_id)
@@ -195,6 +212,54 @@ class TestPrepareNextSeason:
 
         for driver in updated_save.drivers:
             assert driver.age == original_ages[driver.id] + 1
+
+    def test_awards_player_points_and_develops_ai_at_season_start(self, tmp_path):
+        client, manager, save_id = _create_career(tmp_path)
+        save = manager.get(save_id)
+        save = save.model_copy(update={"phase": "offseason"})
+        player_id = save.player_driver_id
+        ai_before = {
+            driver.id: driver.attributes.pace + driver.attributes.qualifying + driver.attributes.racecraft + driver.attributes.consistency
+            for driver in save.drivers
+            if driver.id != player_id and driver.series in {"F1", "F2"}
+        }
+
+        updated_save = prepare_next_season(save)
+
+        ai_after = {
+            driver.id: driver.attributes.pace + driver.attributes.qualifying + driver.attributes.racecraft + driver.attributes.consistency
+            for driver in updated_save.drivers
+            if driver.id in ai_before
+        }
+        assert updated_save.development.total_earned > save.development.total_earned
+        assert updated_save.development.available_points > save.development.available_points
+        assert sum(ai_after.values()) > sum(ai_before.values())
+
+    def test_f1_player_can_progress_past_junior_caps(self, tmp_path):
+        client, manager, save_id = _create_career(tmp_path)
+        save = manager.get(save_id)
+        player = next(driver for driver in save.drivers if driver.id == save.player_driver_id)
+        f1_player = player.model_copy(
+            update={
+                "series": "F1",
+                "attributes": player.attributes.model_copy(update={"pace": 100}),
+                "hidden": player.hidden.model_copy(update={"potential": 99, "adaptation_ceiling": 99}),
+            }
+        )
+        save = save.model_copy(
+            update={
+                "drivers": [f1_player if driver.id == player.id else driver for driver in save.drivers],
+                "development": DevelopmentState(available_points=2, total_earned=2, spent_points={"raw_pace_1": 5}),
+            }
+        )
+
+        status = get_development_status(save)
+        updated_save = spend_development_point(save, "raw_pace_1")
+        updated_player = next(driver for driver in updated_save.drivers if driver.id == save.player_driver_id)
+
+        raw_pace_skill = next(skill for skill in status["skills"] if skill["id"] == "raw_pace_1")
+        assert raw_pace_skill["maxRank"] > 5
+        assert updated_player.attributes.pace == 101
 
 
 class TestSeasonStatusEndpoint:
