@@ -1,25 +1,16 @@
 "use client";
 
-import { AlertTriangle, CheckCircle, Shield, Zap } from "lucide-react";
 import { useState } from "react";
-import type { DecisionChoice, PendingDecision } from "@/lib/types";
+import type { ActiveRaceState, DecisionChoice, Driver, PendingDecision } from "@/lib/types";
 
 type Props = {
   decision: PendingDecision;
+  activeRace: ActiveRaceState;
+  driverMap: Map<string, Driver>;
+  playerDriverId: string | null | undefined;
   onSubmit: (choiceIndex: number) => void;
   onAutoComplete: () => void;
   isSubmitting: boolean;
-};
-
-const typeIcons: Record<string, typeof Zap> = {
-  start: Zap,
-  attack: Zap,
-  defend: Shield,
-  tires: AlertTriangle,
-  strategy: AlertTriangle,
-  safety_car: AlertTriangle,
-  weather: AlertTriangle,
-  late_pressure: Zap,
 };
 
 const typeLabels: Record<string, string> = {
@@ -33,24 +24,35 @@ const typeLabels: Record<string, string> = {
   late_pressure: "Late Race Pressure",
 };
 
+function getRiskTone(risk: number): string {
+  if (risk <= 30) return "pos";
+  if (risk <= 55) return "info";
+  if (risk <= 75) return "warn";
+  return "neg";
+}
+
 function getRiskLabel(risk: number): string {
-  if (risk <= 2) return "Low Risk";
-  if (risk <= 5) return "Medium Risk";
-  if (risk <= 7) return "High Risk";
-  return "Very High Risk";
+  if (risk <= 30) return "Low";
+  if (risk <= 55) return "Medium";
+  if (risk <= 75) return "High";
+  return "Very High";
 }
 
-function getRiskClass(risk: number): string {
-  if (risk <= 2) return "risk-low";
-  if (risk <= 5) return "risk-medium";
-  if (risk <= 7) return "risk-high";
-  return "risk-extreme";
-}
-
-export function DecisionPromptModal({ decision, onSubmit, onAutoComplete, isSubmitting }: Props) {
+export function DecisionPromptModal({
+  decision,
+  activeRace,
+  driverMap,
+  playerDriverId,
+  onSubmit,
+  onAutoComplete,
+  isSubmitting,
+}: Props) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const { prompt } = decision;
-  const Icon = typeIcons[prompt.type] ?? AlertTriangle;
+  const latestSnapshot = activeRace.lapSnapshots.at(-1);
+  const playerEntry = latestSnapshot?.runningOrder.find(
+    (entry) => entry.driverId === playerDriverId
+  );
 
   function handleSubmit() {
     if (selectedIndex !== null) {
@@ -59,90 +61,80 @@ export function DecisionPromptModal({ decision, onSubmit, onAutoComplete, isSubm
   }
 
   return (
-    <div className="decision-modal-overlay">
-      <div className="decision-modal">
-        <header className="decision-header">
-          <div className="decision-type">
-            <Icon size={20} />
-            <span>{typeLabels[prompt.type] ?? prompt.type}</span>
+    <div className="modal-overlay">
+      <div className="modal" style={{ maxWidth: 640 }}>
+        {/* Header */}
+        <div className="modal-header">
+          <div>
+            <div className="decision-title">{typeLabels[prompt.type] ?? "Decision"}</div>
+            <div className="modal-title">{prompt.title}</div>
           </div>
-          <span className="decision-lap">Lap {prompt.lap}</span>
-        </header>
-
-        <div className="decision-content">
-          <h2>{prompt.title}</h2>
-          <p>{prompt.description}</p>
+          <span className="tag accent">Lap {prompt.lap}</span>
         </div>
 
-        <div className="decision-choices">
+        {/* Description */}
+        <div className="decision-body">{prompt.description}</div>
+
+        {/* Context */}
+        {playerEntry && (
+          <div className="flex" style={{ gap: 24, marginBottom: 20 }}>
+            <div>
+              <div className="t3 tiny">Position</div>
+              <div className="mono" style={{ fontSize: 18, fontWeight: 600 }}>
+                P{playerEntry.position}
+              </div>
+            </div>
+            <div>
+              <div className="t3 tiny">Gap Ahead</div>
+              <div className="mono" style={{ fontSize: 18, fontWeight: 600 }}>
+                {playerEntry.position === 1 ? "Leader" : `+${playerEntry.gapToCarAhead.toFixed(1)}s`}
+              </div>
+            </div>
+            <div>
+              <div className="t3 tiny">Gap to Leader</div>
+              <div className="mono" style={{ fontSize: 18, fontWeight: 600 }}>
+                {playerEntry.position === 1 ? "—" : `+${playerEntry.gapToLeader.toFixed(1)}s`}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Choices */}
+        <div style={{ marginBottom: 20 }}>
           {prompt.choices.map((choice, index) => (
-            <ChoiceCard
+            <div
               key={choice.id}
-              choice={choice}
-              index={index}
-              isSelected={selectedIndex === index}
-              isDefault={choice.id === prompt.defaultChoiceId}
-              onSelect={() => setSelectedIndex(index)}
-            />
+              className={`decision-option ${selectedIndex === index ? "selected" : ""}`}
+              onClick={() => setSelectedIndex(index)}
+            >
+              <div className="key">{index + 1}</div>
+              <div className="lbl">{choice.label}</div>
+              <div className="tags">
+                <span className={`tag ${getRiskTone(choice.risk)}`} style={{ fontSize: 10 }}>
+                  {getRiskLabel(choice.risk)} risk
+                </span>
+                {choice.id === prompt.defaultChoiceId && (
+                  <span className="tag" style={{ fontSize: 10 }}>Default</span>
+                )}
+              </div>
+            </div>
           ))}
         </div>
 
-        <footer className="decision-footer">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={onAutoComplete}
-            disabled={isSubmitting}
-          >
+        {/* Actions */}
+        <div className="flex" style={{ gap: 12, justifyContent: "flex-end" }}>
+          <button className="btn" onClick={onAutoComplete} disabled={isSubmitting}>
             Skip All Decisions
           </button>
           <button
-            type="button"
-            className="primary-button"
+            className="btn primary"
             onClick={handleSubmit}
             disabled={selectedIndex === null || isSubmitting}
           >
             {isSubmitting ? "Confirming..." : "Confirm Choice"}
           </button>
-        </footer>
+        </div>
       </div>
     </div>
-  );
-}
-
-function ChoiceCard({
-  choice,
-  index,
-  isSelected,
-  isDefault,
-  onSelect,
-}: {
-  choice: DecisionChoice;
-  index: number;
-  isSelected: boolean;
-  isDefault: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={`choice-card ${isSelected ? "selected" : ""}`}
-      onClick={onSelect}
-    >
-      <div className="choice-header">
-        <span className="choice-label">{choice.label}</span>
-        {isDefault && (
-          <span className="choice-default">
-            <CheckCircle size={14} />
-            Default
-          </span>
-        )}
-      </div>
-      <div className="choice-meta">
-        <span className={`choice-risk ${getRiskClass(choice.risk)}`}>
-          {getRiskLabel(choice.risk)}
-        </span>
-      </div>
-    </button>
   );
 }

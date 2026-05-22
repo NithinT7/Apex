@@ -43,6 +43,7 @@ export type Driver = {
   name: string;
   nationality: string;
   age: number;
+  driverNumber?: number | null;
   series: DriverSeries;
   teamId: string;
   academyId: string | null;
@@ -105,7 +106,7 @@ export type CalendarRound = {
   startDate: string;
   endDate: string;
   country: string;
-  series: "F2";
+  series: "F1" | "F2";
   hasSprint: boolean;
   completed: boolean;
 };
@@ -117,6 +118,7 @@ export type DataBootstrap = {
   f2Teams: Team[];
   academies: Academy[];
   tracks: Track[];
+  f1Calendar: CalendarRound[];
   f2Calendar: CalendarRound[];
 };
 
@@ -151,7 +153,7 @@ export type ChampionshipState = {
 export type NewsItem = {
   id: string;
   date: string;
-  category: "race" | "media" | "academy" | "rumor" | "contract" | "incident" | "system";
+  category: "race" | "media" | "academy" | "rumor" | "contract" | "incident" | "system" | "rivalry";
   headline: string;
   body: string;
   linkedDriverIds: string[];
@@ -184,6 +186,7 @@ export type WeatherState = {
   airTemp: number;
   trackTemp: number;
   rainIntensity: number;
+  trackGrip: number;
 };
 
 export type PracticeClassification = {
@@ -207,9 +210,13 @@ export type RunningOrderEntry = {
   driverId: string;
   gapToLeader: number;
   gapToCarAhead: number;
+  currentLapTime: number | null;
+  previousLapTime: number | null;
+  bestLapTime: number | null;
   tireCompound: "soft" | "medium" | "hard" | "inter" | "wet";
   tireAge: number;
   tireWear: number;
+  componentWear: number;
   status: "running" | "dnf";
 };
 
@@ -306,12 +313,21 @@ export type SaveGame = {
   academyStates: AcademyState[];
   calendar: CalendarRound[];
   standings: ChampionshipState;
+  f1Standings?: ChampionshipState | null;
   news: NewsItem[];
   rivalries: Rivalry[];
   contracts: Contract[];
   weekendResults: WeekendResult[];
+  f1WeekendResults: WeekendResult[];
+  development: DevelopmentState;
   randomSeed: number;
-  eventFlags: Record<string, boolean>;
+  eventFlags: Record<string, boolean | string | number>;
+};
+
+export type DevelopmentState = {
+  availablePoints: number;
+  totalEarned: number;
+  spentPoints: Record<string, number>;
 };
 
 export type SaveSummary = {
@@ -398,6 +414,7 @@ export type ActiveRaceState = {
 
 export type WeekendPrep = {
   roundId: string;
+  hasSprint: boolean;
   practice: {
     trackId: string;
     weather: WeatherState;
@@ -469,4 +486,22 @@ export type PlayerStatus = {
   academyTrust: number | null;
   daysUntilRace: number;
   phase: CareerPhase;
+};
+
+export type SkillNode = {
+  id: string;
+  name: string;
+  branch: string;
+  description: string;
+  attribute: string;
+  cost: number;
+  maxRank: number;
+};
+
+export type DevelopmentStatus = {
+  availablePoints: number;
+  totalEarned: number;
+  spentPoints: Record<string, number>;
+  skills: SkillNode[];
+  attributes: Record<string, number>;
 };

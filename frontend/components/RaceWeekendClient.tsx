@@ -1,32 +1,102 @@
 "use client";
 
-import { Flag, Loader2, Play, Pause, FastForward } from "lucide-react";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useSave } from "@/components/SaveProvider";
+import { PageHead, Section, StatRow, DriverCell, Tire } from "@/components/Shell";
 import {
   autoCompleteRace,
   completeRace,
   finalizeWeekend,
-  getSave,
-  getSaves,
   prepareWeekend,
-  simulateNextWeekend,
-  simulateToDecision,
   simulateWeekend,
+  simulateToDecision,
   startRace,
   submitDecision,
 } from "@/lib/api";
 import type {
   ActiveRaceState,
+  CalendarRound,
   Driver,
+  LapSnapshot,
+  RaceClassification,
   RaceResult,
-  SaveGame,
-  SaveSummary,
+  RunningOrderEntry,
+  Team,
   WeekendPrep,
   WeekendResult,
 } from "@/lib/types";
 import { DecisionPromptModal } from "./DecisionPromptModal";
 
-type RaceMode = "auto" | "interactive";
+// Team color mapping
+const TEAM_COLORS: Record<string, string> = {
+  f2_prema: "#e23526",
+  f2_virtuosi: "#ffd700",
+  f2_carlin: "#004aad",
+  f2_dams: "#002f87",
+  f2_hitech: "#cecece",
+  f2_mp: "#ff6600",
+  f2_art: "#008c45",
+  f2_campos: "#e6002d",
+  f2_trident: "#0057b8",
+  f2_invicta: "#2a2a2a",
+  f2_rodin: "#8b4513",
+  f2_van_amersfoort: "#1e90ff",
+  // F1 teams
+  f1_redbull: "#3671c6",
+  f1_ferrari: "#e80020",
+  f1_mercedes: "#27f4d2",
+  f1_mclaren: "#ff8000",
+  f1_astonmartin: "#229971",
+  f1_alpine: "#ff87bc",
+  f1_williams: "#64c4ff",
+  f1_haas: "#b6babd",
+  f1_sauber: "#52e252",
+  f1_rb: "#6692ff",
+};
+
+function getTeamColor(teamId: string): string {
+  return TEAM_COLORS[teamId] || "#555";
+}
+
+function getTeamAbbrev(teamName: string): string {
+  const abbrevs: Record<string, string> = {
+    prema: "PRE",
+    virtuosi: "VIR",
+    carlin: "CAR",
+    dams: "DAM",
+    hitech: "HIT",
+    mp: "MP",
+    art: "ART",
+    campos: "CAM",
+    trident: "TRI",
+    invicta: "INV",
+    rodin: "ROD",
+    "van amersfoort": "VAR",
+  };
+  const lower = teamName.toLowerCase();
+  for (const [key, val] of Object.entries(abbrevs)) {
+    if (lower.includes(key)) return val;
+  }
+  return teamName.slice(0, 3).toUpperCase();
+}
+
+function getDriverCode(name: string): string {
+  const parts = name.split(" ");
+  if (parts.length >= 2) {
+    return parts[parts.length - 1].slice(0, 3).toUpperCase();
+  }
+  return name.slice(0, 3).toUpperCase();
+}
+
+function getDriverInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 type InteractivePhase =
   | "idle"
   | "preparing"
@@ -39,54 +109,50 @@ type InteractivePhase =
   | "feature_complete"
   | "finalizing";
 
+type SessionTimingRow = {
+  position: number;
+  driverId: string;
+  lapTime: number;
+  note?: string;
+};
+
 export function RaceWeekendClient() {
-  const [saves, setSaves] = useState<SaveSummary[]>([]);
-  const [save, setSave] = useState<SaveGame | null>(null);
-  const [selectedSaveId, setSelectedSaveId] = useState("");
+  const { currentSave: save, selectedSaveId, loading, refreshSave } = useSave();
   const [selectedRoundId, setSelectedRoundId] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [simulating, setSimulating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Interactive race state
-  const [raceMode, setRaceMode] = useState<RaceMode>("interactive");
   const [interactivePhase, setInteractivePhase] = useState<InteractivePhase>("idle");
   const [weekendPrep, setWeekendPrep] = useState<WeekendPrep | null>(null);
   const [activeRace, setActiveRace] = useState<ActiveRaceState | null>(null);
   const [sprintResult, setSprintResult] = useState<RaceResult | null>(null);
   const [featureResult, setFeatureResult] = useState<RaceResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSimulatingWeekend, setIsSimulatingWeekend] = useState(false);
 
   useEffect(() => {
-    getSaves()
-      .then((loaded) => {
-        setSaves(loaded);
-        setSelectedSaveId(loaded[0]?.saveId ?? "");
-      })
-      .catch(() => setError("Could not load saves."))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (!selectedSaveId) {
-      setSave(null);
-      return;
+    if (save) {
+      const nextRound = save.calendar.find((r) => !r.completed);
+      setSelectedRoundId(nextRound?.id ?? save.calendar[0]?.id ?? "");
+      resetInteractiveState();
     }
-    getSave(selectedSaveId)
-      .then((loaded) => {
-        setSave(loaded);
-        setSelectedRoundId(nextRoundId(loaded) ?? loaded.calendar[0]?.id ?? "");
-        resetInteractiveState();
-      })
-      .catch(() => setError("Could not load selected save."));
-  }, [selectedSaveId]);
+  }, [save?.saveId]);
 
   const weekend = save?.weekendResults.find((result) => result.roundId === selectedRoundId);
-  const nextPlayableRound = save ? nextRoundId(save) : null;
+  const selectedRound = save?.calendar.find((r) => r.id === selectedRoundId);
+
   const driverMap = useMemo(() => {
     const map = new Map<string, Driver>();
     for (const driver of save?.drivers ?? []) {
       map.set(driver.id, driver);
+    }
+    return map;
+  }, [save]);
+
+  const teamMap = useMemo(() => {
+    const map = new Map<string, Team>();
+    for (const team of save?.teams ?? []) {
+      map.set(team.id, team);
     }
     return map;
   }, [save]);
@@ -99,35 +165,6 @@ export function RaceWeekendClient() {
     setFeatureResult(null);
     setError(null);
   }, []);
-
-  // Auto-simulate full weekend
-  async function runWeekend() {
-    if (!selectedSaveId) return;
-    setSimulating(true);
-    setError(null);
-    try {
-      setSave(await simulateWeekend(selectedSaveId, selectedRoundId));
-    } catch {
-      setError("Weekend simulation failed. It may already be complete or the backend may be offline.");
-    } finally {
-      setSimulating(false);
-    }
-  }
-
-  async function runNextWeekend() {
-    if (!selectedSaveId) return;
-    setSimulating(true);
-    setError(null);
-    try {
-      const updated = await simulateNextWeekend(selectedSaveId);
-      setSave(updated);
-      setSelectedRoundId(updated.weekendResults.at(-1)?.roundId ?? selectedRoundId);
-    } catch {
-      setError("Next weekend simulation failed. The season may already be complete.");
-    } finally {
-      setSimulating(false);
-    }
-  }
 
   // Interactive race functions
   async function handlePrepareWeekend() {
@@ -144,6 +181,21 @@ export function RaceWeekendClient() {
     }
   }
 
+  async function handleSimulateWeekend() {
+    if (!selectedSaveId || !selectedRoundId) return;
+    setIsSimulatingWeekend(true);
+    setError(null);
+    try {
+      await simulateWeekend(selectedSaveId, selectedRoundId);
+      await refreshSave();
+      resetInteractiveState();
+    } catch {
+      setError("Failed to simulate weekend. Only the next playable round can be simulated.");
+    } finally {
+      setIsSimulatingWeekend(false);
+    }
+  }
+
   async function handleStartRace(raceType: "sprint" | "feature") {
     if (!selectedSaveId || !selectedRoundId) return;
     const phase = raceType === "sprint" ? "sprint_running" : "feature_running";
@@ -152,30 +204,28 @@ export function RaceWeekendClient() {
     try {
       const state = await startRace(selectedSaveId, selectedRoundId, raceType);
       setActiveRace(state);
-      // Immediately simulate to first decision or end
-      await handleSimulateToDecision(raceType, state);
-    } catch (err) {
+    } catch {
       setError(`Failed to start ${raceType} race.`);
       setInteractivePhase("prep_complete");
     }
   }
 
-  async function handleSimulateToDecision(raceType: "sprint" | "feature", currentState?: ActiveRaceState) {
-    if (!selectedSaveId || !selectedRoundId) return;
+  async function handleAdvanceLap() {
+    if (!selectedSaveId || !selectedRoundId || !activeRace) return;
+    const activeRaceType = activeRace.raceType;
     setError(null);
     try {
-      const state = await simulateToDecision(selectedSaveId, selectedRoundId, raceType);
+      setInteractivePhase(activeRaceType === "sprint" ? "sprint_running" : "feature_running");
+      const state = await simulateToDecision(selectedSaveId, selectedRoundId, activeRaceType);
       setActiveRace(state);
 
       if (state.isComplete) {
-        // Race finished, get final result
-        await handleCompleteRace(raceType);
+        await handleCompleteRace(activeRaceType);
       } else if (state.pendingDecision) {
-        // Decision needed
-        setInteractivePhase(raceType === "sprint" ? "sprint_decision" : "feature_decision");
+        setInteractivePhase(activeRaceType === "sprint" ? "sprint_decision" : "feature_decision");
       }
     } catch {
-      setError("Failed to simulate race.");
+      setError("Failed to advance lap.");
     }
   }
 
@@ -192,9 +242,6 @@ export function RaceWeekendClient() {
       const state = await submitDecision(selectedSaveId, selectedRoundId, raceType, decision);
       setActiveRace(state);
       setInteractivePhase(raceType === "sprint" ? "sprint_running" : "feature_running");
-
-      // Continue simulation
-      await handleSimulateToDecision(raceType, state);
     } catch {
       setError("Failed to submit decision.");
     } finally {
@@ -243,12 +290,13 @@ export function RaceWeekendClient() {
   }
 
   async function handleFinalizeWeekend() {
-    if (!selectedSaveId || !selectedRoundId || !sprintResult || !featureResult) return;
+    if (!selectedSaveId || !selectedRoundId || !weekendPrep || !featureResult) return;
+    const sprintForFinalize = sprintResult ?? emptySprintResult(weekendPrep);
     setInteractivePhase("finalizing");
     setError(null);
     try {
-      const updated = await finalizeWeekend(selectedSaveId, selectedRoundId, sprintResult, featureResult);
-      setSave(updated);
+      await finalizeWeekend(selectedSaveId, selectedRoundId, sprintForFinalize, featureResult);
+      await refreshSave();
       resetInteractiveState();
     } catch {
       setError("Failed to finalize weekend.");
@@ -257,102 +305,73 @@ export function RaceWeekendClient() {
   }
 
   if (loading) {
-    return <p className="lede">Loading saves...</p>;
-  }
-
-  if (!saves.length) {
     return (
-      <section className="panel">
-        <h2>No Saves Yet</h2>
-        <p>Create a driver first, then return here to simulate the opening F2 weekend.</p>
-      </section>
+      <div className="page">
+        <p className="loading">Loading race weekend...</p>
+      </div>
     );
   }
 
+  if (!save) {
+    return (
+      <div className="page">
+        <div className="empty-state">
+          <h2>No Career Save</h2>
+          <p>Create a driver first, then return here to race.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const completedRounds = save.calendar.filter((r) => r.completed).length;
   const isInteractiveInProgress = interactivePhase !== "idle";
 
   return (
-    <section className="viewer-stack">
-      <div className="panel control-panel">
-        <label>
-          Save
-          <select
-            value={selectedSaveId}
-            onChange={(event) => setSelectedSaveId(event.target.value)}
-            disabled={isInteractiveInProgress}
-          >
-            {saves.map((item) => (
-              <option key={item.saveId} value={item.saveId}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Round
-          <select
-            value={selectedRoundId}
-            onChange={(event) => {
-              setSelectedRoundId(event.target.value);
-              resetInteractiveState();
-            }}
-            disabled={isInteractiveInProgress}
-          >
-            {(save?.calendar ?? []).map((round) => (
-              <option key={round.id} value={round.id}>
-                R{round.roundNumber} {round.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Mode
-          <select
-            value={raceMode}
-            onChange={(e) => setRaceMode(e.target.value as RaceMode)}
-            disabled={isInteractiveInProgress || !!weekend}
-          >
-            <option value="interactive">Interactive</option>
-            <option value="auto">Auto-Simulate</option>
-          </select>
-        </label>
-      </div>
+    <div className="page">
+      <PageHead
+        meta={`Round ${selectedRound?.roundNumber ?? "?"} of ${save.calendar.length}`}
+        title={selectedRound?.name ?? "Race Weekend"}
+        sub={`${selectedRound?.country ?? ""} · ${selectedRound?.series ?? "F2"} · ${completedRounds} rounds completed`}
+      />
 
-      {raceMode === "auto" && (
-        <div className="panel compact-action-row">
-          <p>
-            Next playable race:{" "}
-            <strong>
-              {nextPlayableRound
-                ? save?.calendar.find((round) => round.id === nextPlayableRound)?.name
-                : "Season complete"}
-            </strong>
-          </p>
-          <div style={{ display: "flex", gap: "12px" }}>
-            <button
-              className="primary-button"
-              style={{ marginTop: 0, width: "auto" }}
-              type="button"
-              onClick={runWeekend}
-              disabled={simulating || !!weekend}
+      {/* Round selector */}
+      <Section>
+        <div className="flex center" style={{ gap: 16 }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span className="t3 tiny">Select Round</span>
+            <select
+              value={selectedRoundId}
+              onChange={(e) => {
+                setSelectedRoundId(e.target.value);
+                resetInteractiveState();
+              }}
+              disabled={isInteractiveInProgress}
+              style={{ minWidth: 200 }}
             >
-              {simulating ? <Loader2 size={18} className="spin" /> : <Play size={18} />}
-              {weekend ? "Complete" : "Simulate"}
-            </button>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={runNextWeekend}
-              disabled={simulating || !nextPlayableRound}
-            >
-              <Flag size={18} />
-              Next Race
-            </button>
-          </div>
+              {save.calendar.map((round) => (
+                <option key={round.id} value={round.id}>
+                  R{round.roundNumber} {round.name} {round.completed ? "✓" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          {!weekend && interactivePhase === "idle" && (
+            <div className="flex" style={{ gap: 8 }}>
+              <button className="btn primary" onClick={handlePrepareWeekend} disabled={isSimulatingWeekend}>
+                Prepare Weekend
+              </button>
+              <button className="btn" onClick={handleSimulateWeekend} disabled={isSimulatingWeekend}>
+                {isSimulatingWeekend ? "Simulating..." : "Sim Weekend"}
+              </button>
+            </div>
+          )}
         </div>
-      )}
+      </Section>
 
-      {raceMode === "interactive" && !weekend && (
+      {error && <p className="tag neg" style={{ marginBottom: 20 }}>{error}</p>}
+
+      {/* Interactive Controls */}
+      {!weekend && interactivePhase !== "idle" && (
         <InteractiveControls
           phase={interactivePhase}
           weekendPrep={weekendPrep}
@@ -360,45 +379,22 @@ export function RaceWeekendClient() {
           sprintResult={sprintResult}
           featureResult={featureResult}
           driverMap={driverMap}
-          onPrepare={handlePrepareWeekend}
+          teamMap={teamMap}
+          round={selectedRound}
+          playerDriverId={save.playerDriverId}
           onStartSprint={() => handleStartRace("sprint")}
           onStartFeature={() => handleStartRace("feature")}
+          onAdvanceLap={handleAdvanceLap}
           onFinalize={handleFinalizeWeekend}
+          onSubmitDecision={handleSubmitDecision}
+          onAutoComplete={handleAutoComplete}
+          isSubmitting={isSubmitting}
         />
       )}
 
-      {error ? <p className="error-text">{error}</p> : null}
-
-      {/* Decision Modal */}
-      {activeRace?.pendingDecision &&
-        (interactivePhase === "sprint_decision" || interactivePhase === "feature_decision") && (
-          <DecisionPromptModal
-            decision={activeRace.pendingDecision}
-            onSubmit={handleSubmitDecision}
-            onAutoComplete={handleAutoComplete}
-            isSubmitting={isSubmitting}
-          />
-        )}
-
-      {/* Live Race View */}
-      {activeRace && !activeRace.pendingDecision && (
-        <LiveRaceView activeRace={activeRace} driverMap={driverMap} playerDriverId={save?.playerDriverId} />
-      )}
-
       {/* Completed Weekend View */}
-      {weekend ? (
-        <WeekendView weekend={weekend} driverMap={driverMap} />
-      ) : !isInteractiveInProgress ? (
-        <section className="panel">
-          <h2>Ready</h2>
-          <p>
-            {raceMode === "interactive"
-              ? "Click 'Prepare Weekend' to simulate practice and qualifying, then race interactively with decision prompts."
-              : "Run the selected weekend to generate practice, qualifying, sprint, feature, prompts, and news."}
-          </p>
-        </section>
-      ) : null}
-    </section>
+      {weekend && <WeekendView weekend={weekend} driverMap={driverMap} playerDriverId={save.playerDriverId} />}
+    </div>
   );
 }
 
@@ -409,10 +405,16 @@ function InteractiveControls({
   sprintResult,
   featureResult,
   driverMap,
-  onPrepare,
+  teamMap,
+  round,
+  playerDriverId,
   onStartSprint,
   onStartFeature,
+  onAdvanceLap,
   onFinalize,
+  onSubmitDecision,
+  onAutoComplete,
+  isSubmitting,
 }: {
   phase: InteractivePhase;
   weekendPrep: WeekendPrep | null;
@@ -420,396 +422,1302 @@ function InteractiveControls({
   sprintResult: RaceResult | null;
   featureResult: RaceResult | null;
   driverMap: Map<string, Driver>;
-  onPrepare: () => void;
+  teamMap: Map<string, Team>;
+  round: CalendarRound | undefined;
+  playerDriverId: string | null;
   onStartSprint: () => void;
   onStartFeature: () => void;
+  onAdvanceLap: () => void;
   onFinalize: () => void;
+  onSubmitDecision: (choiceIndex: number) => void;
+  onAutoComplete: () => void;
+  isSubmitting: boolean;
 }) {
-  if (phase === "idle") {
-    return (
-      <div className="panel compact-action-row">
-        <p>Ready to start the race weekend</p>
-        <button className="primary-button" style={{ marginTop: 0, width: "auto" }} onClick={onPrepare}>
-          <Play size={18} />
-          Prepare Weekend
-        </button>
-      </div>
-    );
-  }
-
   if (phase === "preparing") {
     return (
-      <div className="panel compact-action-row">
-        <p>Simulating practice and qualifying...</p>
-        <Loader2 size={24} className="spin" />
-      </div>
+      <Section>
+        <div className="card" style={{ textAlign: "center", padding: 40 }}>
+          <div className="spin" style={{ fontSize: 24, marginBottom: 12 }}>⏳</div>
+          <p className="t2">Simulating practice and qualifying...</p>
+        </div>
+      </Section>
     );
   }
 
   if (phase === "prep_complete" && weekendPrep) {
+    const readyTitle = weekendPrep.hasSprint ? "Ready for Sprint Race" : "Ready for Main Race";
+    const readyCopy = weekendPrep.hasSprint
+      ? weekendPrep.sprintGrid.length === weekendPrep.featureGrid.length &&
+        weekendPrep.sprintGrid.slice(0, 10).join("|") === weekendPrep.featureGrid.slice(0, 10).join("|")
+        ? "Sprint grid follows the sprint qualifying order. Make decisions during the race to affect your result."
+        : "Sprint grid reverses the qualifying top 10. Make decisions during the race to affect your result."
+      : "This round has no sprint race. The main race grid is based on qualifying results.";
+
     return (
       <>
-        <div className="panel">
-          <h2>Weekend Prepared</h2>
-          <p>Practice and qualifying complete. Ready to start the sprint race.</p>
-        </div>
-        <section className="panel-grid">
-          <QualifyingPreview qualifying={weekendPrep.qualifying} driverMap={driverMap} />
-          <section className="panel">
-            <h2>Sprint Grid</h2>
-            <p className="lede" style={{ marginBottom: 12 }}>
-              Top 10 reversed from qualifying
+        <BroadcastWeekendIntro
+          round={round}
+          weekendPrep={weekendPrep}
+          driverMap={driverMap}
+          playerDriverId={playerDriverId}
+        />
+
+        <Section title="Practice">
+          <SessionResult
+            label="Practice"
+            session={weekendPrep.practice}
+            driverMap={driverMap}
+            playerDriverId={playerDriverId}
+          />
+        </Section>
+
+        <Section title="Qualifying">
+          <SessionResult
+            label="Qualifying"
+            session={weekendPrep.qualifying}
+            driverMap={driverMap}
+            playerDriverId={playerDriverId}
+          />
+        </Section>
+
+        <Section>
+          <div className="card">
+            <div className="card-head">
+              <div className="card-title">{readyTitle}</div>
+            </div>
+            <p className="t2" style={{ marginBottom: 16 }}>
+              {readyCopy}
             </p>
-            <ol className="compact-list">
-              {weekendPrep.sprintGrid.slice(0, 10).map((driverId, idx) => (
-                <li key={driverId}>
-                  {driverMap.get(driverId)?.name ?? driverId}
-                </li>
-              ))}
-            </ol>
-          </section>
-        </section>
-        <div className="panel compact-action-row">
-          <p>Start the sprint race</p>
-          <button className="primary-button" style={{ marginTop: 0, width: "auto" }} onClick={onStartSprint}>
-            <Flag size={18} />
-            Start Sprint Race
-          </button>
-        </div>
+            <button className="btn primary" onClick={weekendPrep.hasSprint ? onStartSprint : onStartFeature}>
+              {weekendPrep.hasSprint ? "Start Sprint Race →" : "Start Main Race →"}
+            </button>
+          </div>
+        </Section>
       </>
     );
   }
 
   if ((phase === "sprint_running" || phase === "sprint_decision") && activeRace) {
     return (
-      <div className="panel compact-action-row">
-        <p>
-          <strong>Sprint Race</strong> - Lap {activeRace.currentLap} / {activeRace.totalLaps}
-        </p>
-        {phase === "sprint_running" && <Loader2 size={24} className="spin" />}
-      </div>
+      <>
+        <LiveRaceView
+          activeRace={activeRace}
+          driverMap={driverMap}
+          teamMap={teamMap}
+          playerDriverId={playerDriverId}
+          raceType="Sprint"
+          onAdvanceLap={onAdvanceLap}
+          isDecisionPending={phase === "sprint_decision"}
+          pendingDecision={activeRace.pendingDecision}
+          onSubmitDecision={onSubmitDecision}
+          onAutoComplete={onAutoComplete}
+          isSubmitting={isSubmitting}
+          startingGrid={weekendPrep?.sprintGrid ?? []}
+        />
+      </>
     );
   }
 
   if (phase === "sprint_complete" && sprintResult) {
     return (
       <>
-        <div className="panel">
-          <h2>Sprint Complete</h2>
-          <RaceResultPreview race={sprintResult} driverMap={driverMap} />
-        </div>
-        <div className="panel compact-action-row">
-          <p>Ready for the feature race</p>
-          <button className="primary-button" style={{ marginTop: 0, width: "auto" }} onClick={onStartFeature}>
-            <Flag size={18} />
-            Start Feature Race
-          </button>
-        </div>
+        <Section title="Sprint Result">
+          <RaceResultTable race={sprintResult} driverMap={driverMap} playerDriverId={playerDriverId} />
+          <PostSessionSummary race={sprintResult} driverMap={driverMap} playerDriverId={playerDriverId} />
+        </Section>
+        <Section>
+          <div className="card">
+            <div className="card-head">
+              <div className="card-title">Ready for Feature Race</div>
+            </div>
+            <p className="t2" style={{ marginBottom: 16 }}>
+              The main event. Grid is based on qualifying results.
+            </p>
+            <button className="btn primary" onClick={onStartFeature}>
+              Start Feature Race →
+            </button>
+          </div>
+        </Section>
       </>
     );
   }
 
   if ((phase === "feature_running" || phase === "feature_decision") && activeRace) {
     return (
-      <div className="panel compact-action-row">
-        <p>
-          <strong>Feature Race</strong> - Lap {activeRace.currentLap} / {activeRace.totalLaps}
-        </p>
-        {phase === "feature_running" && <Loader2 size={24} className="spin" />}
-      </div>
+      <LiveRaceView
+        activeRace={activeRace}
+        driverMap={driverMap}
+        teamMap={teamMap}
+        playerDriverId={playerDriverId}
+        raceType="Feature"
+        onAdvanceLap={onAdvanceLap}
+        isDecisionPending={phase === "feature_decision"}
+        pendingDecision={activeRace.pendingDecision}
+        onSubmitDecision={onSubmitDecision}
+        onAutoComplete={onAutoComplete}
+        isSubmitting={isSubmitting}
+        startingGrid={weekendPrep?.featureGrid ?? []}
+      />
     );
   }
 
   if (phase === "feature_complete" && featureResult) {
     return (
       <>
-        <div className="panel">
-          <h2>Feature Complete</h2>
-          <RaceResultPreview race={featureResult} driverMap={driverMap} />
-        </div>
-        <div className="panel compact-action-row">
-          <p>Finalize weekend to update standings</p>
-          <button className="primary-button" style={{ marginTop: 0, width: "auto" }} onClick={onFinalize}>
-            <FastForward size={18} />
-            Finalize Weekend
-          </button>
-        </div>
+        <Section title="Feature Result">
+          <RaceResultTable race={featureResult} driverMap={driverMap} playerDriverId={playerDriverId} />
+          <PostSessionSummary race={featureResult} driverMap={driverMap} playerDriverId={playerDriverId} />
+        </Section>
+        <Section>
+          <div className="card">
+            <div className="card-head">
+              <div className="card-title">Weekend Complete</div>
+            </div>
+            <p className="t2" style={{ marginBottom: 16 }}>
+              Finalize the weekend to update standings and generate news.
+            </p>
+            <button className="btn primary" onClick={onFinalize}>
+              Finalize Weekend →
+            </button>
+          </div>
+        </Section>
       </>
     );
   }
 
   if (phase === "finalizing") {
     return (
-      <div className="panel compact-action-row">
-        <p>Finalizing weekend and updating standings...</p>
-        <Loader2 size={24} className="spin" />
-      </div>
+      <Section>
+        <div className="card" style={{ textAlign: "center", padding: 40 }}>
+          <div className="spin" style={{ fontSize: 24, marginBottom: 12 }}>⏳</div>
+          <p className="t2">Updating standings and generating news...</p>
+        </div>
+      </Section>
     );
   }
 
   return null;
 }
 
-function LiveRaceView({
-  activeRace,
+function SessionResult({
+  label,
+  session,
   driverMap,
   playerDriverId,
 }: {
-  activeRace: ActiveRaceState;
+  label?: string;
+  session: { weather: { condition: string; trackTemp: number }; classification: Array<{ position: number; driverId: string; lapTime: number; note?: string }> };
   driverMap: Map<string, Driver>;
-  playerDriverId: string | null | undefined;
+  playerDriverId: string | null;
 }) {
-  const latestSnapshot = activeRace.lapSnapshots.at(-1);
+  const playerRow = session.classification.find((row) => row.driverId === playerDriverId);
+  const leader = session.classification[0];
+  const playerGap = playerRow && leader ? playerRow.lapTime - leader.lapTime : null;
 
   return (
-    <div className="race-viewer">
-      <section className="panel">
-        <div className="race-status-bar">
-          <div className="race-progress">
-            <strong>
-              Lap {activeRace.currentLap} / {activeRace.totalLaps}
-            </strong>
-            {activeRace.safetyCarActive && <span style={{ color: "#facc15" }}>Safety Car</span>}
-          </div>
-          {activeRace.playerPosition && (
-            <span>
-              Your Position: <strong>P{activeRace.playerPosition}</strong>
+    <div>
+      <div className="broadcast-session-panel">
+        <div>
+          <div className="broadcast-kicker">{label ?? "Session"} story</div>
+          <div className="broadcast-title">{sessionStory(label, playerRow, playerGap)}</div>
+        </div>
+        <div className="what-matters">
+          <div className="what-title">What matters now</div>
+          <ul>
+            {sessionWhatMatters(label, playerRow, playerGap).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="flex" style={{ gap: 16, marginBottom: 16 }}>
+        <span className="tag">{session.weather.condition.toUpperCase()}</span>
+        <span className="t2">Track: {session.weather.trackTemp}°C</span>
+      </div>
+      <div className="table-scroll">
+      <table className="tbl">
+        <thead>
+          <tr>
+            <th style={{ width: 50 }}>Pos</th>
+            <th>Driver</th>
+            <th className="num">Time</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          {session.classification.map((row) => {
+            const isPlayer = row.driverId === playerDriverId;
+            return (
+              <tr key={row.driverId} className={isPlayer ? "player" : ""}>
+                <td className="mono strong">P{row.position}</td>
+                <td>
+                  <DriverCell name={driverMap.get(row.driverId)?.name ?? row.driverId} driverId={row.driverId} isPlayer={isPlayer} />
+                </td>
+                <td className="num mono">{formatLapTime(row.lapTime)}</td>
+                <td className="t2">{row.note ?? ""}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      </div>
+    </div>
+  );
+}
+
+function LiveRaceView({
+  activeRace,
+  driverMap,
+  teamMap,
+  playerDriverId,
+  raceType,
+  onAdvanceLap,
+  isDecisionPending,
+  pendingDecision,
+  onSubmitDecision,
+  onAutoComplete,
+  isSubmitting,
+  startingGrid,
+}: {
+  activeRace: ActiveRaceState;
+  driverMap: Map<string, Driver>;
+  teamMap: Map<string, Team>;
+  playerDriverId: string | null;
+  raceType: string;
+  onAdvanceLap: () => void;
+  isDecisionPending: boolean;
+  pendingDecision: import("@/lib/types").PendingDecision | null;
+  onSubmitDecision: (choiceIndex: number) => void;
+  onAutoComplete: () => void;
+  isSubmitting: boolean;
+  startingGrid: string[];
+}) {
+  const latestSnapshot = activeRace.lapSnapshots.at(-1);
+  const allCommentary = activeRace.lapSnapshots
+    .slice()
+    .reverse()
+    .flatMap((snap) =>
+      snap.commentary.map((line, i) => ({ lap: snap.lap, line, key: `${snap.lap}-${i}` }))
+    );
+
+  // Build running order - either from lap snapshot or starting grid
+  const runningOrder: import("@/lib/types").RunningOrderEntry[] = latestSnapshot
+    ? latestSnapshot.runningOrder
+    : startingGrid.map((driverId, index) => ({
+        position: index + 1,
+        driverId,
+        gapToLeader: 0,
+        gapToCarAhead: 0,
+        currentLapTime: null,
+        previousLapTime: null,
+        bestLapTime: null,
+        tireCompound: "medium" as const,
+        tireAge: 0,
+        tireWear: 0,
+        componentWear: 0,
+        status: "running" as const,
+      }));
+
+  const isLapZero = activeRace.currentLap === 0;
+
+  // Get player's running order entry for stats
+  const playerEntry = runningOrder.find(
+    (entry) => entry.driverId === playerDriverId
+  );
+  const player = playerDriverId ? driverMap.get(playerDriverId) ?? null : null;
+  const playerTeam = player ? teamMap.get(player.teamId) : null;
+  const currentWeather = activeRace.lapSnapshots.at(-1)?.weather;
+  const engineerMessages = buildEngineerMessages(
+    activeRace,
+    runningOrder,
+    playerEntry,
+    playerDriverId,
+    driverMap,
+    pendingDecision
+  );
+  const mattersNow = buildRaceMatters(activeRace, runningOrder, playerEntry, playerDriverId, driverMap, isLapZero);
+
+  return (
+    <div className="race-fullscreen">
+      {/* Compact race control bar */}
+      <div className="race-control-compact">
+        <div className="race-control-left">
+          <span className="race-type">{raceType.toUpperCase()}</span>
+          <span className="race-lap">
+            LAP <strong>{activeRace.currentLap}</strong>/{activeRace.totalLaps}
+          </span>
+          {currentWeather && (
+            <span className="tag sm">
+              {currentWeather.condition.toUpperCase()} · GRIP {currentWeather.trackGrip}%
             </span>
           )}
+          {activeRace.safetyCarActive && <span className="tag warn sm">SC</span>}
         </div>
-      </section>
-
-      {latestSnapshot && (
-        <>
-          <section className="panel">
-            <h2>Running Order</h2>
-            <div className="running-order">
-              {latestSnapshot.runningOrder.slice(0, 10).map((entry) => (
-                <div
-                  key={entry.driverId}
-                  className={`running-order-row ${entry.driverId === playerDriverId ? "player" : ""}`}
-                >
-                  <span className="position">P{entry.position}</span>
-                  <span>{driverMap.get(entry.driverId)?.name ?? entry.driverId}</span>
-                  <span className="gap">
-                    {entry.position === 1 ? "Leader" : `+${entry.gapToLeader.toFixed(1)}s`}
-                  </span>
-                  <span className={`tire tire-${entry.tireCompound}`}>
-                    {entry.tireCompound.toUpperCase()} L{entry.tireAge}
-                  </span>
-                  <span className="gap">{(entry.tireWear * 100).toFixed(0)}%</span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {latestSnapshot.commentary.length > 0 && (
-            <section className="panel">
-              <h2>Commentary</h2>
-              <div className="commentary-feed">
-                {latestSnapshot.commentary.map((line, idx) => (
-                  <p key={idx} className="commentary-line">
-                    {line}
-                  </p>
-                ))}
-              </div>
-            </section>
+        <div className="race-control-center">
+          {activeRace.playerPosition && (
+            <span className="player-position">P{activeRace.playerPosition}</span>
           )}
-        </>
+        </div>
+        <div className="race-control-right">
+          {!isDecisionPending ? (
+            <button className="btn primary sm" onClick={onAdvanceLap}>
+              Advance Lap →
+            </button>
+          ) : (
+            <span className="tag warn">Decision Required</span>
+          )}
+        </div>
+      </div>
+
+      <BroadcastRaceHeader
+        activeRace={activeRace}
+        raceType={raceType}
+        playerEntry={playerEntry}
+        player={player}
+        matters={mattersNow}
+      />
+
+      {/* Race layout - fills remaining viewport */}
+      <div className="race-layout-full">
+        {/* Race Tower */}
+        <div className="race-tower-panel">
+          <RaceTower
+            runningOrder={runningOrder}
+            currentLap={activeRace.currentLap}
+            totalLaps={activeRace.totalLaps}
+            driverMap={driverMap}
+            teamMap={teamMap}
+            playerDriverId={playerDriverId}
+            raceType={raceType}
+            isStartingGrid={isLapZero}
+          />
+        </div>
+
+        {/* Player Stats + Race Events Panel */}
+        <div className="race-events-panel">
+          {/* Player Stats Section - at the top */}
+          {playerEntry && (
+            <div className="player-stats-section">
+              <div className="player-stats-header">
+                <span className="player-stats-name">{player?.name ?? "You"}</span>
+                <span className="player-stats-team">{playerTeam?.name ?? ""}</span>
+              </div>
+              <div className="player-stats-grid">
+                <PlayerStatItem
+                  label={isLapZero ? "Grid Position" : "Position"}
+                  value={`P${playerEntry.position}`}
+                  highlight
+                />
+                <PlayerStatItem
+                  label="Gap Ahead"
+                  value={isLapZero ? "—" : playerEntry.position === 1 ? "Leader" : formatRaceGap(playerEntry.gapToCarAhead)}
+                />
+                <PlayerStatItem
+                  label="Gap to Leader"
+                  value={isLapZero ? "—" : playerEntry.position === 1 ? "—" : formatRaceGap(playerEntry.gapToLeader)}
+                />
+                <PlayerStatItem
+                  label="Tire Life"
+                  value={`${Math.round(100 - (playerEntry.tireWear ?? 0))}%`}
+                  sub={`${playerEntry.tireCompound?.toUpperCase()} · ${playerEntry.tireAge} laps`}
+                  color={
+                    (playerEntry.tireWear ?? 0) > 70
+                      ? "var(--neg)"
+                      : (playerEntry.tireWear ?? 0) > 40
+                      ? "var(--warn)"
+                      : "var(--pos)"
+                  }
+                />
+                <PlayerStatItem
+                  label="Power Unit"
+                  value={`${Math.round(playerEntry.componentWear ?? 0)}%`}
+                  sub={
+                    (playerEntry.componentWear ?? 0) > 76
+                      ? "Lift-and-coast advised"
+                      : "Temperatures stable"
+                  }
+                  color={
+                    (playerEntry.componentWear ?? 0) > 82
+                      ? "var(--neg)"
+                      : (playerEntry.componentWear ?? 0) > 68
+                      ? "var(--warn)"
+                      : "var(--pos)"
+                  }
+                />
+                <PlayerStatItem
+                  label="Current Lap"
+                  value={formatLapTime(playerEntry.currentLapTime)}
+                  mono
+                />
+                <PlayerStatItem
+                  label="Previous Lap"
+                  value={formatLapTime(playerEntry.previousLapTime)}
+                  mono
+                />
+                <PlayerStatItem
+                  label="Best Lap"
+                  value={formatLapTime(playerEntry.bestLapTime)}
+                  mono
+                  color="var(--accent)"
+                />
+              </div>
+            </div>
+          )}
+
+          <RaceEngineerPanel messages={engineerMessages} />
+
+          {/* Race Events below */}
+          <div className="race-events-header">{isLapZero ? "STARTING GRID" : "RACE EVENTS"}</div>
+          <div className="race-events-list">
+            {isLapZero ? (
+              <div className="race-event-item">
+                <span className="race-event-text t2">
+                  Lights out! Click "Advance Lap" to begin the race.
+                </span>
+              </div>
+            ) : allCommentary.length > 0 ? (
+              allCommentary.map((item) => (
+                <div key={item.key} className="race-event-item">
+                  <span className="race-event-lap">Lap {item.lap}</span>
+                  <span className="race-event-text">{item.line}</span>
+                </div>
+              ))
+            ) : (
+              <div className="race-event-item t3">Race in progress...</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Decision Modal - rendered inside fullscreen to appear on top */}
+      {isDecisionPending && pendingDecision && (
+        <DecisionPromptModal
+          decision={pendingDecision}
+          activeRace={activeRace}
+          driverMap={driverMap}
+          playerDriverId={playerDriverId}
+          onSubmit={onSubmitDecision}
+          onAutoComplete={onAutoComplete}
+          isSubmitting={isSubmitting}
+        />
       )}
     </div>
   );
 }
 
-function QualifyingPreview({
-  qualifying,
+function getTeamLogoUrl(teamId: string): string {
+  return `/teams/${teamId}.webp`;
+}
+
+function getDriverImageUrl(driverId: string): string {
+  return `/drivers/faces/${driverId}.webp`;
+}
+
+function RaceTower({
+  runningOrder,
   driverMap,
+  teamMap,
+  playerDriverId,
+  isStartingGrid,
 }: {
-  qualifying: WeekendPrep["qualifying"];
+  runningOrder: RunningOrderEntry[];
+  currentLap: number;
+  totalLaps: number;
   driverMap: Map<string, Driver>;
+  teamMap: Map<string, Team>;
+  playerDriverId: string | null;
+  raceType: string;
+  isStartingGrid?: boolean;
 }) {
   return (
-    <section className="panel">
-      <h2>Qualifying Result</h2>
-      <table className="timing-table">
-        <tbody>
-          {qualifying.classification.slice(0, 10).map((row) => (
-            <tr key={row.driverId}>
-              <td>P{row.position}</td>
-              <td>{driverMap.get(row.driverId)?.name ?? row.driverId}</td>
-              <td>{row.lapTime.toFixed(3)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+    <div className="race-tower">
+      {/* Driver list */}
+      <div className="race-tower-list">
+        {runningOrder.map((entry) => {
+          const driver = driverMap.get(entry.driverId);
+          const team = driver ? teamMap.get(driver.teamId) : null;
+          const isPlayer = entry.driverId === playerDriverId;
+          const isDNF = entry.status === "dnf";
+          const teamColor = team ? getTeamColor(team.id) : "#555";
+          const driverCode = driver ? getDriverCode(driver.name) : "???";
+          const tireCompound = entry.tireCompound?.[0]?.toUpperCase() || "M";
+
+          const interval = isStartingGrid
+            ? "—"
+            : entry.position === 1
+            ? "Interval"
+            : isDNF
+            ? "OUT"
+            : formatRaceGap(entry.gapToCarAhead);
+
+          return (
+            <div
+              key={entry.driverId}
+              className={`race-tower-row ${isPlayer ? "player" : ""} ${isDNF ? "out" : ""}`}
+            >
+              <div className="race-tower-pos">{entry.position}</div>
+              <TeamLogo teamId={team?.id} teamColor={teamColor} teamName={team?.name} />
+              <div className="race-tower-driver">
+                <DriverFace
+                  driverId={driver?.id}
+                  driverName={driver?.name}
+                  teamColor={teamColor}
+                />
+                <span className="race-tower-code">{driverCode}</span>
+              </div>
+              <div className="race-tower-interval">{interval}</div>
+              <div className={`race-tower-tire ${tireCompound}`}>{tireCompound}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
-function RaceResultPreview({
+function TeamLogo({
+  teamId,
+  teamColor,
+  teamName,
+}: {
+  teamId?: string;
+  teamColor: string;
+  teamName?: string;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const logoUrl = teamId ? getTeamLogoUrl(teamId) : null;
+
+  if (!logoUrl || imgError) {
+    // Fallback to colored badge
+    const abbrev = teamName ? getTeamAbbrev(teamName).slice(0, 2) : "??";
+    return (
+      <div
+        className="race-tower-team"
+        style={{ background: teamColor }}
+        title={teamName}
+      >
+        {abbrev}
+      </div>
+    );
+  }
+
+  return (
+    <div className="race-tower-team-logo" title={teamName}>
+      <img
+        src={logoUrl}
+        alt={teamName || "Team"}
+        onError={() => setImgError(true)}
+      />
+    </div>
+  );
+}
+
+function DriverFace({
+  driverId,
+  driverName,
+  teamColor,
+}: {
+  driverId?: string;
+  driverName?: string;
+  teamColor: string;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const imageUrl = driverId ? getDriverImageUrl(driverId) : null;
+  const initials = driverName ? getDriverInitials(driverName) : "??";
+
+  if (!imageUrl || imgError) {
+    // Fallback to helmet with team color
+    return (
+      <div className="race-tower-helmet" title={driverName}>
+        <svg viewBox="0 0 32 32" width="28" height="28">
+          <defs>
+            <linearGradient id={`helmet-${driverId}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={teamColor} />
+              <stop offset="100%" stopColor={adjustColor(teamColor, -30)} />
+            </linearGradient>
+          </defs>
+          <circle cx="16" cy="16" r="15" fill={`url(#helmet-${driverId})`} />
+          <ellipse cx="16" cy="17" rx="11" ry="7" fill="#111" />
+          <ellipse cx="16" cy="16" rx="9" ry="5" fill="#1a1a2a" />
+          <path d="M8 15 Q16 12 24 15" stroke="rgba(255,255,255,0.2)" strokeWidth="1" fill="none" />
+        </svg>
+      </div>
+    );
+  }
+
+  return (
+    <div className="race-tower-face" title={driverName}>
+      <img
+        src={imageUrl}
+        alt={driverName || "Driver"}
+        onError={() => setImgError(true)}
+      />
+    </div>
+  );
+}
+
+function adjustColor(hex: string, amount: number): string {
+  const num = parseInt(hex.replace("#", ""), 16);
+  const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+  const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00ff) + amount));
+  const b = Math.min(255, Math.max(0, (num & 0x0000ff) + amount));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
+function formatGapMinutes(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = (seconds % 60).toFixed(1);
+  return `${mins}:${secs.padStart(4, "0")}`;
+}
+
+function formatLapTime(time?: number | null) {
+  if (typeof time !== "number" || !Number.isFinite(time)) return "—";
+  const mins = Math.floor(time / 60);
+  const secs = (time % 60).toFixed(3).padStart(6, "0");
+  return `${mins}:${secs}`;
+}
+
+function formatRaceGap(seconds?: number | null) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds)) return "—";
+  if (seconds < 60) return `+${seconds.toFixed(3)}s`;
+  return `+${formatGapMinutes(seconds)}`;
+}
+
+function sessionStory(
+  label: string | undefined,
+  playerRow: SessionTimingRow | undefined,
+  playerGap: number | null
+) {
+  const sessionName = label ?? "Session";
+  if (!playerRow) return `${sessionName} is about reading the track before the next run.`;
+  if (playerRow.position <= 3) return `${sessionName}: front-running pace puts you in the main story.`;
+  if (playerRow.position <= 8) return `${sessionName}: competitive pace, but the final tenths matter.`;
+  if (playerGap !== null && playerGap < 0.85) return `${sessionName}: the timing sheet is tight enough to change quickly.`;
+  return `${sessionName}: work to do on balance, execution, or clean track position.`;
+}
+
+function sessionWhatMatters(
+  label: string | undefined,
+  playerRow: SessionTimingRow | undefined,
+  playerGap: number | null
+) {
+  if (!playerRow) return ["Bank a representative lap", "Avoid traffic on the next run", "Build confidence before race trim"];
+  const items = [];
+  if (label === "Qualifying") {
+    items.push(playerRow.position <= 10 ? "Protect track position into Turn 1" : "Plan an aggressive opening stint");
+    items.push(playerGap !== null ? `Find ${Math.max(0.05, playerGap).toFixed(2)}s to match the benchmark` : "Read the pole pace");
+    items.push("Keep tires in the window for the first racing laps");
+  } else {
+    items.push(playerRow.position <= 8 ? "Confirm race pace from the long-run notes" : "Improve setup direction before qualifying");
+    items.push(playerGap !== null ? `Benchmark gap: ${formatRaceGap(Math.max(0, playerGap))}` : "Set a clean baseline");
+    items.push("Watch tire temperature and traffic on out laps");
+  }
+  return items;
+}
+
+function buildEngineerMessages(
+  activeRace: ActiveRaceState,
+  runningOrder: RunningOrderEntry[],
+  playerEntry: RunningOrderEntry | undefined,
+  playerDriverId: string | null,
+  driverMap: Map<string, Driver>,
+  pendingDecision: import("@/lib/types").PendingDecision | null
+) {
+  if (!playerEntry || !playerDriverId) {
+    return [{ type: "info", text: "We are waiting for the first timing reference." }];
+  }
+
+  const ahead = runningOrder.find((entry) => entry.position === playerEntry.position - 1);
+  const behind = runningOrder.find((entry) => entry.position === playerEntry.position + 1);
+  const stintLife = Math.max(0, 100 - playerEntry.tireWear);
+  const messages = [
+    {
+      type: playerEntry.tireWear > 68 ? "warn" : "tire",
+      text:
+        playerEntry.tireWear > 68
+          ? `Tires are fading. ${Math.round(stintLife)}% life remaining, traction exits are the priority.`
+          : `Tires look stable. ${playerEntry.tireCompound.toUpperCase()} compound, ${Math.round(stintLife)}% life remaining.`,
+    },
+  ];
+
+  if (ahead) {
+    const name = driverMap.get(ahead.driverId)?.name ?? "the car ahead";
+    messages.push({
+      type: playerEntry.gapToCarAhead < 1.2 ? "attack" : "gap",
+      text:
+        playerEntry.gapToCarAhead < 1.2
+          ? `${name} is within range. Use battery on the main straight if the exit is clean.`
+          : `Gap to ${name}: ${playerEntry.gapToCarAhead.toFixed(1)}s. Target consistent laps before pushing.`,
+    });
+  }
+
+  if ((playerEntry.componentWear ?? 0) > 76) {
+    messages.push({
+      type: "warn",
+      text: `Power unit wear is ${Math.round(playerEntry.componentWear)}%. Lift and coast if we need to protect the finish.`,
+    });
+  } else if ((playerEntry.componentWear ?? 0) > 60) {
+    messages.push({
+      type: "strategy",
+      text: `Component wear is ${Math.round(playerEntry.componentWear)}%. Push laps are available, but we should choose them carefully.`,
+    });
+  }
+
+  if ((activeRace.lapSnapshots.at(-1)?.weather.trackGrip ?? 80) < 68) {
+    const grip = activeRace.lapSnapshots.at(-1)?.weather.trackGrip;
+    messages.push({
+      type: "warn",
+      text: `Track grip is ${grip ?? "low"}%. Avoid kerbs and expect longer braking zones.`,
+    });
+  }
+
+  if (behind && !activeRace.safetyCarActive) {
+    const name = driverMap.get(behind.driverId)?.name ?? "the car behind";
+    messages.push({
+      type: "gap",
+      text: `${name} behind is ${behind.gapToCarAhead.toFixed(1)}s back. Keep exits clean and avoid overheating the rears.`,
+    });
+  }
+
+  if (pendingDecision) {
+    messages.push({ type: "strategy", text: `${pendingDecision.prompt.title}: recommendation is to decide before lap ${pendingDecision.expiresAtLap}.` });
+  } else if (activeRace.currentLap > activeRace.totalLaps * 0.58 && playerEntry.tireWear > 42) {
+    messages.push({ type: "strategy", text: "Strategy window is live. If pace drops another tenth, the undercut becomes attractive." });
+  } else {
+    const target = playerEntry.previousLapTime ? Math.max(0, playerEntry.previousLapTime - 0.15) : null;
+    messages.push({ type: "target", text: target ? `Target lap ${formatLapTime(target)}. Smooth entries, no sliding.` : "Target is a clean first timed lap, then we reassess." });
+  }
+
+  return messages.slice(0, 4);
+}
+
+function buildRaceMatters(
+  activeRace: ActiveRaceState,
+  runningOrder: RunningOrderEntry[],
+  playerEntry: RunningOrderEntry | undefined,
+  playerDriverId: string | null,
+  driverMap: Map<string, Driver>,
+  isLapZero: boolean
+) {
+  if (isLapZero) return ["Launch cleanly", "Avoid lap-one contact", "Hold tire temperature through the formation phase"];
+  if (!playerEntry) return ["Follow timing deltas", "Watch safety-car risk", "Keep the race plan flexible"];
+
+  const ahead = runningOrder.find((entry) => entry.position === playerEntry.position - 1);
+  const behind = runningOrder.find((entry) => entry.position === playerEntry.position + 1);
+  const items = [];
+  if (activeRace.safetyCarActive) items.push("Safety Car compresses the field");
+  if ((activeRace.lapSnapshots.at(-1)?.weather.trackGrip ?? 80) < 68) items.push("Low grip increases mistake risk");
+  if ((playerEntry.componentWear ?? 0) > 76) items.push("Save engine without losing DRS");
+  if (ahead) {
+    const name = driverMap.get(ahead.driverId)?.name ?? "car ahead";
+    items.push(playerEntry.gapToCarAhead < 1.1 ? `Attack ${name}` : `Close ${name} by two tenths`);
+  }
+  if (behind) {
+    const name = driverMap.get(behind.driverId)?.name ?? "car behind";
+    items.push(`Keep ${name} out of DRS range`);
+  }
+  items.push(playerEntry.tireWear > 60 ? "Manage tire temperatures" : "Hit target laps without overheating");
+  return items.slice(0, 3);
+}
+
+function raceHeadline(
+  activeRace: ActiveRaceState,
+  playerEntry: RunningOrderEntry | undefined,
+  player: Driver | null
+) {
+  if (!playerEntry) return "Timing screens are coming alive as the session settles.";
+  if (activeRace.currentLap === 0) return `${player?.name ?? "Your driver"} waits for lights out from P${playerEntry.position}.`;
+  if (activeRace.safetyCarActive) return "Safety Car changes the tactical picture.";
+  if (playerEntry.position <= 3) return `${player?.name ?? "Your driver"} is in the podium fight with strategy still open.`;
+  if (playerEntry.gapToCarAhead < 1.2) return "The next overtake is the story right now.";
+  return `Running P${playerEntry.position}: pace, traffic, and tire life define the next stint.`;
+}
+
+function buildPostSessionDebrief(
+  race: RaceResult,
+  driverMap: Map<string, Driver>,
+  playerDriverId: string | null
+) {
+  const player = race.classification.find((row) => row.driverId === playerDriverId);
+  const startPosition = playerDriverId ? race.startingGrid.indexOf(playerDriverId) + 1 : 0;
+  const finishPosition = player?.position ?? 0;
+  const positionsGained = startPosition && finishPosition ? startPosition - finishPosition : 0;
+  const fastestRank = player ? fastestLapRank(race.classification, player.driverId) : null;
+  const paceRows = buildPaceRows(race.classification, driverMap, playerDriverId);
+  const playerSnapshots = playerDriverId ? playerLapSnapshots(race.lapLog, playerDriverId) : [];
+  const stints = buildStintSummary(playerSnapshots, player);
+  const incidents = buildIncidentSummary(race, driverMap);
+
+  return {
+    why: explainFinish(player, startPosition, positionsGained, fastestRank),
+    metrics: [
+      { label: "Start", value: startPosition ? `P${startPosition}` : "-", detail: "Grid" },
+      { label: "Finish", value: player ? (player.status === "dnf" ? "DNF" : `P${player.position}`) : "-", detail: player ? `${player.points} pts` : "No result" },
+      { label: "Net", value: positionsGained > 0 ? `+${positionsGained}` : String(positionsGained), detail: "Positions" },
+      { label: "Fastest lap", value: fastestRank ? `P${fastestRank}` : "-", detail: player ? formatLapTime(player.fastestLap) : undefined },
+    ],
+    paceRows,
+    stints,
+    incidents,
+  };
+}
+
+function buildPaceRows(
+  classification: RaceClassification[],
+  driverMap: Map<string, Driver>,
+  playerDriverId: string | null
+) {
+  const sorted = classification
+    .filter((row) => Number.isFinite(row.fastestLap) && row.fastestLap > 0)
+    .sort((a, b) => a.fastestLap - b.fastestLap);
+  const top = sorted.slice(0, 5);
+  const player = sorted.find((row) => row.driverId === playerDriverId);
+  const rows = player && !top.some((row) => row.driverId === player.driverId) ? [...top.slice(0, 4), player] : top;
+  return rows.map((row) => ({
+    label: getDriverCode(driverMap.get(row.driverId)?.name ?? row.driverId),
+    value: row.fastestLap,
+    isPlayer: row.driverId === playerDriverId,
+  }));
+}
+
+function fastestLapRank(classification: RaceClassification[], driverId: string) {
+  const ordered = classification
+    .filter((row) => Number.isFinite(row.fastestLap) && row.fastestLap > 0)
+    .sort((a, b) => a.fastestLap - b.fastestLap);
+  const index = ordered.findIndex((row) => row.driverId === driverId);
+  return index >= 0 ? index + 1 : null;
+}
+
+function playerLapSnapshots(lapLog: LapSnapshot[], playerDriverId: string) {
+  return lapLog
+    .map((lap) => lap.runningOrder.find((entry) => entry.driverId === playerDriverId))
+    .filter((entry): entry is RunningOrderEntry => Boolean(entry));
+}
+
+function buildStintSummary(playerSnapshots: RunningOrderEntry[], player: RaceClassification | undefined) {
+  if (playerSnapshots.length === 0) return ["No stint data available for this session."];
+  const first = playerSnapshots[0];
+  const last = playerSnapshots[playerSnapshots.length - 1];
+  const maxWear = Math.max(...playerSnapshots.map((entry) => entry.tireWear));
+  const maxComponentWear = Math.max(...playerSnapshots.map((entry) => entry.componentWear ?? 0));
+  const compounds = Array.from(new Set(playerSnapshots.map((entry) => entry.tireCompound.toUpperCase())));
+  const items = [
+    `${compounds.join(" / ")} tire run, ending at ${Math.round(last.tireWear)}% wear.`,
+    `Peak tire stress reached ${Math.round(maxWear)}%, ${maxWear > 68 ? "forcing management late on" : "kept under control"}.`,
+    `Component wear peaked at ${Math.round(maxComponentWear)}%, ${maxComponentWear > 78 ? "making lift-and-coast meaningful" : "without limiting the stint"}.`,
+  ];
+  if (player) items.push(`${player.pitStops} stop${player.pitStops === 1 ? "" : "s"} completed.`);
+  if (first.position !== last.position) {
+    items.push(`Track position moved from P${first.position} to P${last.position} during logged laps.`);
+  }
+  return items;
+}
+
+function buildIncidentSummary(race: RaceResult, driverMap: Map<string, Driver>) {
+  const incidents = [];
+  if (race.safetyCarLaps.length > 0) {
+    incidents.push(`Safety Car on lap${race.safetyCarLaps.length > 1 ? "s" : ""} ${race.safetyCarLaps.join(", ")}.`);
+  }
+  if (race.dnfs.length > 0) {
+    incidents.push(`DNFs: ${race.dnfs.map((id) => driverMap.get(id)?.name ?? id).join(", ")}.`);
+  }
+  for (const prompt of race.decisionPrompts.slice(0, 3)) {
+    incidents.push(`Lap ${prompt.lap}: ${prompt.title}.`);
+  }
+  return incidents.length ? incidents : ["Clean session with no major incidents recorded."];
+}
+
+function explainFinish(
+  player: RaceClassification | undefined,
+  startPosition: number,
+  positionsGained: number,
+  fastestRank: number | null
+) {
+  if (!player) return "No player classification was recorded for this session.";
+  if (player.status === "dnf") return "A retirement defined the result, so pace and strategy never reached the final phase.";
+  const direction =
+    positionsGained > 2
+      ? "strong race execution and passing"
+      : positionsGained < -2
+      ? "lost track position and compromised race pace"
+      : "a result close to the starting position";
+  const pace =
+    fastestRank !== null && fastestRank <= 5
+      ? "The pace was competitive on single-lap evidence."
+      : fastestRank !== null && fastestRank > 12
+      ? "The fastest-lap ranking suggests the car was not consistently quick enough."
+      : "Pace was in the middle of the competitive window.";
+  return `You started P${startPosition || "?"} and finished P${player.position}: ${direction}. ${pace}`;
+}
+
+function PlayerStatItem({
+  label,
+  value,
+  sub,
+  mono,
+  highlight,
+  color,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  mono?: boolean;
+  highlight?: boolean;
+  color?: string;
+}) {
+  return (
+    <div className={`player-stat-item ${highlight ? "highlight" : ""}`}>
+      <div className="player-stat-label">{label}</div>
+      <div
+        className={`player-stat-value ${mono ? "mono" : ""}`}
+        style={color ? { color } : undefined}
+      >
+        {value}
+      </div>
+      {sub && <div className="player-stat-sub">{sub}</div>}
+    </div>
+  );
+}
+
+function RaceResultTable({
   race,
   driverMap,
+  playerDriverId,
 }: {
   race: RaceResult;
   driverMap: Map<string, Driver>;
+  playerDriverId: string | null;
 }) {
   return (
-    <table className="timing-table">
+    <div className="table-scroll">
+    <table className="tbl">
+      <thead>
+        <tr>
+          <th style={{ width: 50 }}>Pos</th>
+          <th>Driver</th>
+          <th className="num">Gap</th>
+          <th className="num">Pts</th>
+          <th className="num">Stops</th>
+        </tr>
+      </thead>
       <tbody>
-        {race.classification.slice(0, 10).map((row) => (
-          <tr key={row.driverId}>
-            <td>P{row.position}</td>
-            <td>{driverMap.get(row.driverId)?.name ?? row.driverId}</td>
-            <td>
-              {row.status === "dnf"
-                ? "DNF"
-                : row.position === 1
+        {race.classification.map((row) => {
+          const isPlayer = row.driverId === playerDriverId;
+          return (
+            <tr key={row.driverId} className={isPlayer ? "player" : ""}>
+              <td className="mono strong">
+                {row.status === "dnf" ? "DNF" : `P${row.position}`}
+              </td>
+              <td>
+                <DriverCell
+                  name={driverMap.get(row.driverId)?.name ?? row.driverId}
+                  driverId={row.driverId}
+                  isPlayer={isPlayer}
+                />
+              </td>
+              <td className="num t2">
+                {row.status === "dnf"
+                  ? "—"
+                  : row.position === 1
                   ? "Winner"
-                  : `+${row.gapToWinner.toFixed(3)}`}
-            </td>
-            <td>{row.points} pts</td>
-          </tr>
-        ))}
+                  : formatRaceGap(row.gapToWinner)}
+              </td>
+              <td className="num" style={{ color: row.points > 0 ? "var(--pos)" : undefined }}>
+                {row.points}
+              </td>
+              <td className="num">{row.pitStops}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
+    </div>
   );
 }
 
-function nextRoundId(save: SaveGame) {
-  return save.calendar.find((round) => !round.completed)?.id ?? null;
+function BroadcastWeekendIntro({
+  round,
+  weekendPrep,
+  driverMap,
+  playerDriverId,
+}: {
+  round: CalendarRound | undefined;
+  weekendPrep: WeekendPrep;
+  driverMap: Map<string, Driver>;
+  playerDriverId: string | null;
+}) {
+  const playerPractice = weekendPrep.practice.classification.find((row) => row.driverId === playerDriverId);
+  const playerQuali = weekendPrep.qualifying.classification.find((row) => row.driverId === playerDriverId);
+  const pole = weekendPrep.qualifying.classification[0];
+  const poleName = pole ? driverMap.get(pole.driverId)?.name ?? pole.driverId : "the polesitter";
+
+  return (
+    <Section>
+      <div className="broadcast-intro">
+        <div>
+          <div className="broadcast-kicker">Live weekend build-up</div>
+          <h2>{round?.name ?? "Race Weekend"} is on air</h2>
+          <p>
+            Practice has set the baseline, qualifying has fixed the pressure points, and the next
+            session is about converting track position into race control.
+          </p>
+        </div>
+        <div className="broadcast-cards">
+          <BroadcastMiniStat label="Pole" value={poleName} detail={formatLapTime(pole?.lapTime)} />
+          <BroadcastMiniStat label="Your practice" value={playerPractice ? `P${playerPractice.position}` : "-"} detail={playerPractice?.note ?? "No run"} />
+          <BroadcastMiniStat label="Your grid" value={playerQuali ? `P${playerQuali.position}` : "-"} detail={playerQuali?.note ?? "No lap"} />
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function BroadcastMiniStat({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <div className="broadcast-mini-stat">
+      <div>{label}</div>
+      <strong>{value}</strong>
+      {detail && <span>{detail}</span>}
+    </div>
+  );
+}
+
+function BroadcastRaceHeader({
+  activeRace,
+  raceType,
+  playerEntry,
+  player,
+  matters,
+}: {
+  activeRace: ActiveRaceState;
+  raceType: string;
+  playerEntry: RunningOrderEntry | undefined;
+  player: Driver | null;
+  matters: string[];
+}) {
+  return (
+    <div className="broadcast-race-header">
+      <div>
+        <div className="broadcast-kicker">{raceType} storyline</div>
+        <div className="broadcast-title">
+          {raceHeadline(activeRace, playerEntry, player)}
+        </div>
+      </div>
+      <div className="what-matters race">
+        <div className="what-title">What matters now</div>
+        <ul>
+          {matters.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function RaceEngineerPanel({ messages }: { messages: Array<{ type: string; text: string }> }) {
+  return (
+    <div className="engineer-panel">
+      <div className="race-events-header">RACE ENGINEER</div>
+      <div className="engineer-message-list">
+        {messages.map((message, index) => (
+          <div key={`${message.type}-${index}`} className={`engineer-message ${message.type}`}>
+            <span>{message.type}</span>
+            <p>{message.text}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PostSessionSummary({
+  race,
+  driverMap,
+  playerDriverId,
+}: {
+  race: RaceResult;
+  driverMap: Map<string, Driver>;
+  playerDriverId: string | null;
+}) {
+  const debrief = buildPostSessionDebrief(race, driverMap, playerDriverId);
+
+  return (
+    <div className="post-session-summary">
+      <div className="summary-card">
+        <div className="broadcast-kicker">Why you finished here</div>
+        <div className="summary-main">{debrief.why}</div>
+        <div className="summary-grid">
+          {debrief.metrics.map((metric) => (
+            <BroadcastMiniStat key={metric.label} label={metric.label} value={metric.value} detail={metric.detail} />
+          ))}
+        </div>
+      </div>
+
+      <div className="grid cols-3 gap-sm">
+        <div className="summary-card">
+          <div className="card-title">Pace chart</div>
+          <PaceChart rows={debrief.paceRows} />
+        </div>
+        <div className="summary-card">
+          <div className="card-title">Stint analysis</div>
+          <ul className="summary-list">
+            {debrief.stints.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="summary-card">
+          <div className="card-title">Key incidents</div>
+          <ul className="summary-list">
+            {debrief.incidents.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PaceChart({ rows }: { rows: Array<{ label: string; value: number; isPlayer: boolean }> }) {
+  const best = rows.length ? Math.min(...rows.map((row) => row.value)) : 0;
+  const slowest = rows.length ? Math.max(...rows.map((row) => row.value)) : 0;
+  const spread = Math.max(0.001, slowest - best);
+
+  return (
+    <div className="pace-chart">
+      {rows.map((row) => {
+        const delta = row.value - best;
+        const width = 100 - (delta / spread) * 42;
+        return (
+          <div key={`${row.label}-${row.value}`} className={`pace-row ${row.isPlayer ? "player" : ""}`}>
+            <span>{row.label}</span>
+            <div className="pace-bar">
+              <i style={{ width: `${Math.max(44, width)}%` }} />
+            </div>
+            <b>{delta <= 0.001 ? "Best" : `+${delta.toFixed(3)}`}</b>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function WeekendView({
   weekend,
   driverMap,
+  playerDriverId,
 }: {
   weekend: WeekendResult;
   driverMap: Map<string, Driver>;
+  playerDriverId: string | null;
 }) {
+  const playerFeatureResult = weekend.feature.classification.find(
+    (c) => c.driverId === playerDriverId
+  );
+  const playerSprintResult = weekend.sprint.classification.find(
+    (c) => c.driverId === playerDriverId
+  );
+  const hasSprint = weekend.sprint.classification.length > 0;
+
   return (
     <>
-      <section className="panel hero-panel">
-        <p className="eyebrow-text">Headline</p>
-        <h2>{weekend.headline}</h2>
-        <dl className="stat-grid">
-          <div>
-            <dt>Feature Laps</dt>
-            <dd>{weekend.feature.totalLaps}</dd>
-          </div>
-          <div>
-            <dt>Safety Car</dt>
-            <dd>{weekend.feature.safetyCarLaps.length}</dd>
-          </div>
-          <div>
-            <dt>DNFs</dt>
-            <dd>{weekend.feature.dnfs.length}</dd>
-          </div>
-          <div>
-            <dt>Prompts</dt>
-            <dd>{weekend.feature.decisionPrompts.length}</dd>
-          </div>
-        </dl>
-      </section>
-
-      <section className="panel-grid">
-        <Classification
-          title="Qualifying"
-          rows={weekend.qualifying.classification.slice(0, 10)}
-          driverMap={driverMap}
-        />
-        <RaceClassification title="Feature Result" race={weekend.feature} driverMap={driverMap} />
-      </section>
-
-      <section className="panel">
-        <h2>Decision Prompts</h2>
-        <div className="prompt-list">
-          {weekend.feature.decisionPrompts.map((prompt) => (
-            <article className="prompt-card" key={prompt.id}>
-              <p>Lap {prompt.lap}</p>
-              <h3>{prompt.title}</h3>
-              <span>{prompt.description}</span>
-            </article>
-          ))}
+      {/* Headline */}
+      <Section>
+        <div className="card">
+          <div className="t3 tiny" style={{ marginBottom: 8 }}>Weekend Summary</div>
+          <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 16 }}>{weekend.headline}</div>
+          <StatRow
+            items={[
+              {
+                label: "Feature Position",
+                value: playerFeatureResult
+                  ? playerFeatureResult.status === "dnf"
+                    ? "DNF"
+                    : `P${playerFeatureResult.position}`
+                  : "—",
+                mono: true,
+              },
+              {
+                label: "Sprint Position",
+                value: playerSprintResult
+                  ? playerSprintResult.status === "dnf"
+                    ? "DNF"
+                    : `P${playerSprintResult.position}`
+                  : hasSprint
+                  ? "—"
+                  : "No sprint",
+                mono: true,
+              },
+              {
+                label: "Points Scored",
+                value: String((playerFeatureResult?.points ?? 0) + (playerSprintResult?.points ?? 0)),
+                mono: true,
+              },
+              {
+                label: "Decisions Made",
+                value: String(weekend.feature.decisionPrompts.length),
+                mono: true,
+              },
+            ]}
+          />
         </div>
-      </section>
+      </Section>
 
-      <section className="panel">
-        <h2>Lap Feed</h2>
-        <div className="lap-feed">
-          {weekend.feature.lapLog
-            .filter((lap) => lap.commentary.length || lap.decisionPrompt)
-            .slice(0, 12)
-            .map((lap) => (
-              <article key={lap.lap}>
-                <strong>Lap {lap.lap}</strong>
-                {lap.commentary.map((line) => (
-                  <span key={line}>{line}</span>
-                ))}
-              </article>
+      {/* Results grid */}
+      <div className="grid cols-2">
+        <Section title="Practice">
+          <SessionResult session={weekend.practice} driverMap={driverMap} playerDriverId={playerDriverId} />
+        </Section>
+        <Section title="Qualifying">
+          <SessionResult session={weekend.qualifying} driverMap={driverMap} playerDriverId={playerDriverId} />
+        </Section>
+      </div>
+
+      <div className={hasSprint ? "grid cols-2" : ""}>
+        <Section title="Feature Result">
+          <RaceResultTable race={weekend.feature} driverMap={driverMap} playerDriverId={playerDriverId} />
+          <PostSessionSummary race={weekend.feature} driverMap={driverMap} playerDriverId={playerDriverId} />
+        </Section>
+        {hasSprint && (
+          <Section title="Sprint Result">
+            <RaceResultTable race={weekend.sprint} driverMap={driverMap} playerDriverId={playerDriverId} />
+            <PostSessionSummary race={weekend.sprint} driverMap={driverMap} playerDriverId={playerDriverId} />
+          </Section>
+        )}
+      </div>
+
+      {/* Decision prompts */}
+      {weekend.feature.decisionPrompts.length > 0 && (
+        <Section title="Race Decisions">
+          <div className="grid cols-3 gap-sm">
+            {weekend.feature.decisionPrompts.map((prompt) => (
+              <div key={prompt.id} className="card" style={{ padding: 16 }}>
+                <div className="t3 tiny">Lap {prompt.lap}</div>
+                <div style={{ fontWeight: 500, marginTop: 4 }}>{prompt.title}</div>
+                <div className="t2 small" style={{ marginTop: 4 }}>{prompt.description}</div>
+              </div>
             ))}
-        </div>
-      </section>
+          </div>
+        </Section>
+      )}
     </>
   );
 }
 
-function Classification({
-  title,
-  rows,
-  driverMap,
-}: {
-  title: string;
-  rows: Array<{ position: number; driverId: string; lapTime: number; note: string }>;
-  driverMap: Map<string, Driver>;
-}) {
-  return (
-    <section className="panel">
-      <h2>{title}</h2>
-      <table className="timing-table">
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.driverId}>
-              <td>P{row.position}</td>
-              <td>{driverMap.get(row.driverId)?.name ?? row.driverId}</td>
-              <td>{row.lapTime.toFixed(3)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
-  );
-}
-
-function RaceClassification({
-  title,
-  race,
-  driverMap,
-}: {
-  title: string;
-  race: RaceResult;
-  driverMap: Map<string, Driver>;
-}) {
-  return (
-    <section className="panel">
-      <h2>{title}</h2>
-      <table className="timing-table">
-        <tbody>
-          {race.classification.slice(0, 10).map((row) => (
-            <tr key={row.driverId}>
-              <td>P{row.position}</td>
-              <td>{driverMap.get(row.driverId)?.name ?? row.driverId}</td>
-              <td>
-                {row.status === "dnf"
-                  ? "DNF"
-                  : row.position === 1
-                    ? "Winner"
-                    : `+${row.gapToWinner.toFixed(3)}`}
-              </td>
-              <td>{row.points} pts</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
-  );
+function emptySprintResult(prep: WeekendPrep): RaceResult {
+  const trackId = prep.practice.trackId;
+  return {
+    raceId: `${trackId}_sprint`,
+    sessionType: "sprint",
+    trackId,
+    totalLaps: 0,
+    startingGrid: [],
+    classification: [],
+    lapLog: [],
+    decisionPrompts: [],
+    safetyCarLaps: [],
+    dnfs: [],
+  };
 }

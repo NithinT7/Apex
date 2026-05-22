@@ -8,6 +8,7 @@ import type {
   CreateCareerPayload,
   DataBootstrap,
   DecisionResponse,
+  DevelopmentStatus,
   HealthResponse,
   PlayerStatus,
   RaceResult,
@@ -297,6 +298,23 @@ export async function skipToRaceWeek(saveId: string): Promise<SaveGame> {
 
 export async function getPlayerStatus(saveId: string): Promise<PlayerStatus> {
   return getJson<PlayerStatus>(`/career/${saveId}/activities/status`);
+}
+
+export async function getDevelopmentStatus(saveId: string): Promise<DevelopmentStatus> {
+  return getJson<DevelopmentStatus>(`/career/${saveId}/activities/development`);
+}
+
+export async function spendDevelopmentPoint(saveId: string, skillId: string): Promise<SaveGame> {
+  const response = await fetch(
+    `${API_BASE_URL}/career/${saveId}/activities/development/${skillId}`,
+    { method: "POST" }
+  );
+
+  if (!response.ok) {
+    throw new Error(`API request failed for development spend: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 export async function getAcademyStatus(saveId: string): Promise<AcademyStatus> {
