@@ -157,6 +157,7 @@ def _build_player(
         name=payload.name.strip(),
         nationality=payload.nationality.strip(),
         age=payload.age,
+        driver_number=payload.driver_number,
         series="F2",
         team_id=payload.team_id,
         academy_id=payload.academy_id,

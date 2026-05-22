@@ -63,6 +63,12 @@ class Contract(AppModel):
     active: bool = True
 
 
+class DevelopmentState(AppModel):
+    available_points: int = 0
+    total_earned: int = 0
+    spent_points: dict[str, int] = Field(default_factory=dict)
+
+
 class SaveGame(AppModel):
     save_id: str
     name: str
@@ -78,12 +84,15 @@ class SaveGame(AppModel):
     academy_states: list[AcademyState]
     calendar: list[CalendarRound]
     standings: ChampionshipState
+    f1_standings: ChampionshipState | None = None
     news: list[NewsItem] = Field(default_factory=list)
     rivalries: list[Rivalry] = Field(default_factory=list)
     contracts: list[Contract] = Field(default_factory=list)
     weekend_results: list[WeekendResult] = Field(default_factory=list)
+    f1_weekend_results: list[WeekendResult] = Field(default_factory=list)
+    development: DevelopmentState = Field(default_factory=DevelopmentState)
     random_seed: int
-    event_flags: dict[str, bool] = Field(default_factory=dict)
+    event_flags: dict[str, bool | str | int | float] = Field(default_factory=dict)
     active_race: ActiveRaceState | None = None
 
 

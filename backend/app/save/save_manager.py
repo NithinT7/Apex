@@ -62,6 +62,14 @@ class SaveManager:
                 ],
                 team_standings={team.id: 0 for team in get_f2_teams()},
             ),
+            f1_standings=ChampionshipState(
+                driver_standings=[
+                    ChampionshipEntry(driver_id=driver.id)
+                    for driver in drivers
+                    if driver.series == "F1"
+                ],
+                team_standings={team.id: 0 for team in get_f1_teams()},
+            ),
             news=[
                 NewsItem(
                     id="season_seeded",
@@ -73,6 +81,7 @@ class SaveManager:
                 )
             ],
             random_seed=random_seed,
+            event_flags={"race_length_mode": "authentic_scaled"},
         )
 
         return self.save(save)

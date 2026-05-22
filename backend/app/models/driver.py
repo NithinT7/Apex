@@ -54,6 +54,7 @@ class Driver(AppModel):
     name: str
     nationality: str
     age: int
+    driver_number: int | None = None
     series: DriverSeries
     team_id: str
     academy_id: str | None = None

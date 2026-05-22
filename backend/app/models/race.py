@@ -17,6 +17,7 @@ class WeatherState(AppModel):
     air_temp: int
     track_temp: int
     rain_intensity: int = 0
+    track_grip: int = 70
 
 
 class PracticeClassification(AppModel):
@@ -52,9 +53,13 @@ class RunningOrderEntry(AppModel):
     driver_id: str
     gap_to_leader: float
     gap_to_car_ahead: float
+    current_lap_time: float | None = None
+    previous_lap_time: float | None = None
+    best_lap_time: float | None = None
     tire_compound: TireCompound
     tire_age: int
     tire_wear: float
+    component_wear: float = 0
     status: RunnerStatus
 
 

@@ -115,11 +115,22 @@ def get_f1_offers(save_id: str) -> dict:
         )
 
     offers = evaluate_player_f1_offers(save)
+    api_offers = [
+        {
+            "teamId": offer["team_id"],
+            "teamName": offer["team_name"],
+            "likelihood": offer["likelihood"],
+            "role": offer["role"],
+            "carPerformance": offer["car_performance"],
+            "isAcademyTeam": offer["is_academy_team"],
+        }
+        for offer in offers
+    ]
 
     return {
-        "offers": offers,
-        "hasOffers": len(offers) > 0,
-        "bestOffer": offers[0] if offers else None,
+        "offers": api_offers,
+        "hasOffers": len(api_offers) > 0,
+        "bestOffer": api_offers[0] if api_offers else None,
     }
 
 

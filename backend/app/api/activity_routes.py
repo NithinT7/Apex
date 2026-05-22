@@ -9,6 +9,7 @@ from app.engine.activity_engine import (
     get_available_activities,
     perform_activity,
 )
+from app.engine.development_engine import get_development_status, spend_development_point
 from app.models.activity import ActivityOutcome, AvailableActivities
 from app.models.save_game import SaveGame
 from app.save.save_manager import SaveManager
@@ -126,6 +127,27 @@ def get_rivalries(save_id: str) -> dict:
         "mostIntenseId": rivalry_status.most_intense.id if rivalry_status.most_intense else None,
         "teammateRivalryId": rivalry_status.teammate_rivalry.id if rivalry_status.teammate_rivalry else None,
     }
+
+
+@router.get("/development")
+def get_development(save_id: str) -> dict:
+    save = _get_save(save_id)
+    return get_development_status(save)
+
+
+@router.post("/development/{skill_id}", response_model=SaveGame)
+def spend_development(save_id: str, skill_id: str) -> SaveGame:
+    save = _get_save(save_id)
+    if save.phase not in {"between_races", "offseason"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Development points can only be spent between races or during the offseason",
+        )
+    try:
+        updated_save = spend_development_point(save, skill_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return manager.save(updated_save)
 
 
 def _get_intensity_label(intensity: int) -> str:

@@ -6,6 +6,8 @@ from app.engine.academy_engine import (
     apply_race_trust_change,
     check_season_milestone,
 )
+from app.engine.development_engine import award_development_points, points_for_weekend
+from app.engine.news_engine import dedupe_news_items, generate_weekend_narratives
 from app.engine.rivalry_engine import process_race_rivalries
 from app.engine.season_engine import is_season_complete, transition_to_offseason
 from app.engine.decision_engine import (
@@ -17,8 +19,8 @@ from app.engine.decision_engine import (
     _build_race_result,
     _load_internal_state,
 )
-from app.engine.standings_engine import apply_race_points
-from app.engine.weekend_engine import simulate_weekend
+from app.engine.standings_engine import apply_race_points, award_bonus_points
+from app.engine.weekend_engine import simulate_weekend, sprint_grid_for_round
 from app.models.race import (
     ActiveRaceState,
     DecisionResponse,
@@ -59,6 +61,10 @@ def prepare_weekend(save_id: str, round_id: str) -> dict:
     if any(weekend.round_id == round_id for weekend in save.weekend_results):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Weekend already completed")
 
+    calendar_round = next((calendar_round for calendar_round in save.calendar if calendar_round.id == round_id), None)
+    if calendar_round is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Round not found")
+
     # Simulate the full weekend to get practice/qualifying (we'll reuse them)
     weekend = simulate_weekend(save, round_id)
 
@@ -66,13 +72,15 @@ def prepare_weekend(save_id: str, round_id: str) -> dict:
     key = f"{save_id}:{round_id}"
     _WEEKEND_PREP[key] = (weekend.practice, weekend.qualifying)
 
+    qualifying_order = [e.driver_id for e in weekend.qualifying.classification]
+
     return {
-        "round_id": round_id,
-        "practice": weekend.practice.model_dump(),
-        "qualifying": weekend.qualifying.model_dump(),
-        "sprint_grid": list(reversed([e.driver_id for e in weekend.qualifying.classification[:10]]))
-        + [e.driver_id for e in weekend.qualifying.classification[10:]],
-        "feature_grid": [e.driver_id for e in weekend.qualifying.classification],
+        "roundId": round_id,
+        "hasSprint": calendar_round.has_sprint,
+        "practice": weekend.practice.model_dump(by_alias=True),
+        "qualifying": weekend.qualifying.model_dump(by_alias=True),
+        "sprintGrid": sprint_grid_for_round(calendar_round, qualifying_order),
+        "featureGrid": qualifying_order,
     }
 
 
@@ -100,7 +108,10 @@ def start_race(save_id: str, round_id: str, race_type: str) -> ActiveRaceState:
     practice, qualifying = _WEEKEND_PREP[key]
 
     # Start the interactive race
-    active_state = start_interactive_race(save, round_id, race_type, practice, qualifying)
+    try:
+        active_state = start_interactive_race(save, round_id, race_type, practice, qualifying)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     # Store active race in save game
     updated = save.model_copy(update={"active_race": active_state})
@@ -224,6 +235,8 @@ def finalize_weekend(save_id: str, round_id: str, sprint: RaceResult, feature: R
     Applies points and updates standings.
     """
     save = _get_save(save_id)
+    if any(weekend.round_id == round_id for weekend in save.weekend_results):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Weekend already completed")
 
     # Get practice/qualifying
     key = f"{save_id}:{round_id}"
@@ -249,6 +262,8 @@ def finalize_weekend(save_id: str, round_id: str, sprint: RaceResult, feature: R
     # Apply points
     standings = apply_race_points(save.standings, sprint)
     standings = apply_race_points(standings, feature)
+    if calendar_round.series == "F2" and qualifying.classification:
+        standings = award_bonus_points(standings, qualifying.classification[0].driver_id, 2)
     standings = standings.model_copy(update={"team_standings": _team_standings(save, standings)})
 
     # Apply academy trust changes for both races
@@ -273,6 +288,15 @@ def finalize_weekend(save_id: str, round_id: str, sprint: RaceResult, feature: R
     # Process rivalries for feature race (main race)
     updated_save, rivalry_news = process_race_rivalries(updated_save, feature)
     news_items.extend(rivalry_news)
+    news_items.extend(
+        generate_weekend_narratives(
+            updated_save,
+            weekend,
+            calendar_round.series,
+            completed_rounds,
+            calendar_round.end_date,
+        )
+    )
 
     # Update calendar with this round marked as complete
     updated_calendar = [
@@ -288,25 +312,27 @@ def finalize_weekend(save_id: str, round_id: str, sprint: RaceResult, feature: R
             "calendar": updated_calendar,
             "weekend_results": [*save.weekend_results, weekend],
             "active_race": None,
-            "news": [
+            "news": dedupe_news_items([
                 *updated_save.news,
                 NewsItem(
                     id=f"{round_id}_feature_headline",
                     date=calendar_round.end_date,
                     category="race",
                     headline=weekend.headline,
-                    body="The F2 weekend is complete.",
+                    body=f"The {calendar_round.series} weekend is complete.",
                     linked_driver_ids=[save.player_driver_id] if save.player_driver_id else [],
                     importance=4,
                 ),
                 *news_items,
-            ],
+            ]),
         }
     )
 
     # Check if season is complete and transition to offseason
     if is_season_complete(updated):
         updated, season_news = transition_to_offseason(updated)
+
+    updated = award_development_points(updated, points_for_weekend(updated, round_id))
 
     # Clean up prep data
     del _WEEKEND_PREP[key]
@@ -343,9 +369,11 @@ def _headline(save: SaveGame, feature: RaceResult) -> str:
 
 def _team_standings(save: SaveGame, standings) -> dict[str, int]:
     """Calculate team standings from driver points."""
+    next_round = _next_round(save)
+    series = next_round.series if next_round is not None else "F2"
     driver_points = {entry.driver_id: entry.points for entry in standings.driver_standings}
-    team_points = {team.id: 0 for team in save.teams if team.series == "F2"}
+    team_points = {team.id: 0 for team in save.teams if team.series == series}
     for driver in save.drivers:
-        if driver.series == "F2" and driver.team_id in team_points:
+        if driver.series == series and driver.team_id in team_points:
             team_points[driver.team_id] += driver_points.get(driver.id, 0)
     return dict(sorted(team_points.items(), key=lambda item: item[1], reverse=True))
