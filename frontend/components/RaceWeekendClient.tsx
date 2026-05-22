@@ -356,9 +356,9 @@ export function RaceWeekendClient() {
 
       {/* Round selector */}
       <Section>
-        <div className="flex center" style={{ gap: 16 }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span className="t3 tiny">Select Round</span>
+        <div className="flex" style={{ gap: 16, alignItems: "flex-end" }}>
+          <div style={{ flex: 1, maxWidth: 280 }}>
+            <div className="t3 tiny" style={{ marginBottom: 6 }}>Select Round</div>
             <select
               value={selectedRoundId}
               onChange={(e) => {
@@ -366,7 +366,7 @@ export function RaceWeekendClient() {
                 resetInteractiveState();
               }}
               disabled={isInteractiveInProgress}
-              style={{ minWidth: 200 }}
+              style={{ width: "100%" }}
             >
               {save.calendar.map((round) => (
                 <option key={round.id} value={round.id}>
@@ -374,7 +374,7 @@ export function RaceWeekendClient() {
                 </option>
               ))}
             </select>
-          </label>
+          </div>
           {!weekend && interactivePhase === "idle" && (
             <div className="flex" style={{ gap: 8 }}>
               <button className="btn primary" onClick={handlePrepareWeekend} disabled={isSimulatingWeekend}>
