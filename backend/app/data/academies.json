@@ -65,45 +65,6 @@
     "mediaExpectations": 84
   },
   {
-    "id": "academy_williams",
-    "name": "Williams Racing Driver Academy",
-    "style": "early_f1_chance",
-    "f1TeamId": "f1_williams",
-    "supportLevel": 70,
-    "pressure": 68,
-    "patience": 74,
-    "politicalStability": 72,
-    "testingOpportunities": 64,
-    "contractStrictness": 58,
-    "mediaExpectations": 64
-  },
-  {
-    "id": "academy_aston_martin",
-    "name": "Aston Martin Driver Development",
-    "style": "sponsor_prestige",
-    "f1TeamId": "f1_aston_martin",
-    "supportLevel": 76,
-    "pressure": 72,
-    "patience": 68,
-    "politicalStability": 78,
-    "testingOpportunities": 70,
-    "contractStrictness": 70,
-    "mediaExpectations": 78
-  },
-  {
-    "id": "academy_sauber_audi",
-    "name": "Sauber/Audi Junior Programme",
-    "style": "long_term_project",
-    "f1TeamId": "f1_audi",
-    "supportLevel": 74,
-    "pressure": 70,
-    "patience": 78,
-    "politicalStability": 66,
-    "testingOpportunities": 68,
-    "contractStrictness": 64,
-    "mediaExpectations": 66
-  },
-  {
     "id": "academy_independent",
     "name": "Independent",
     "style": "independent",

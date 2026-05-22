@@ -3,8 +3,8 @@
     "id": "karting_prodigy",
     "name": "Karting Prodigy",
     "description": "High raw pace and early hype, but less polished with media.",
-    "attributeEffects": {"pace": 5, "racecraft": 4, "reputation": 3, "marketability": -2},
-    "hiddenEffects": {"potential": 3, "developmentRate": 2}
+    "attributeEffects": {"pace": 8, "qualifying": 3, "racecraft": 5, "reputation": 4, "marketability": -2},
+    "hiddenEffects": {"potential": 5, "developmentRate": 3}
   },
   {
     "id": "wealthy_backed_driver",

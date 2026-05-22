@@ -10,7 +10,7 @@
     "id": "one_lap_monster",
     "name": "One-Lap Monster",
     "description": "Qualifying specialist who can put the car higher than expected.",
-    "attributeEffects": {"qualifying": 8, "pace": 4, "tireManagement": -3, "consistency": -2},
+    "attributeEffects": {"qualifying": 11, "pace": 5, "tireManagement": -3, "consistency": -1},
     "hiddenEffects": {"clutchFactor": 3}
   },
   {
