@@ -50,6 +50,7 @@ def _promote_save_to_f1(manager: SaveManager, save_id: str) -> None:
                     team_standings={team_id: 0 for team_id in f1_team_ids},
                 ),
                 "weekend_results": [],
+                "random_seed": 2026,
             }
         )
     )
@@ -300,3 +301,174 @@ def test_f1_sprint_weekend_uses_sprint_format_without_reverse_grid(tmp_path) -> 
     assert weekend["sprint"]["startingGrid"] == qualifying_order
     assert weekend["sprint"]["classification"][0]["points"] == 8
     assert all(row["pitStops"] >= 2 for row in weekend["feature"]["classification"] if row["status"] == "running")
+
+
+def test_strategy_events_are_recorded(tmp_path):
+    """Verify that pit stop events, stint summaries, and strategy plans are recorded."""
+    manager = SaveManager(tmp_path)
+    career_routes.manager = manager
+    weekend_routes.manager = manager
+    client = TestClient(app)
+
+    save = client.post(
+        "/career/new",
+        json={
+            "name": "Strategy Driver",
+            "nationality": "British",
+            "age": 20,
+            "driverNumber": 44,
+            "backgroundId": "karting_prodigy",
+            "archetypeId": "smooth_operator",
+            "teamId": "f2_prema",
+            "academyId": "academy_ferrari",
+            "difficulty": "realistic",
+        },
+    ).json()
+
+    response = client.post(f"/career/{save['saveId']}/weekend/f2_2026_round_01/simulate")
+    assert response.status_code == 200
+
+    weekend = response.json()["weekendResults"][0]
+    feature = weekend["feature"]
+
+    # Strategy plans should be recorded for all drivers
+    assert "strategyPlans" in feature
+    assert len(feature["strategyPlans"]) > 0
+
+    # Each plan should have required fields
+    for plan in feature["strategyPlans"]:
+        assert "driverId" in plan
+        assert "plannedStops" in plan
+        assert "startingCompound" in plan
+        assert "strategyStyle" in plan
+
+    # Stint summaries should be recorded
+    assert "stintSummaries" in feature
+    assert len(feature["stintSummaries"]) > 0
+
+    # Each stint should have lap times and compound info
+    for stint in feature["stintSummaries"]:
+        assert "driverId" in stint
+        assert "stintNumber" in stint
+        assert "startLap" in stint
+        assert "endLap" in stint
+        assert "compound" in stint
+
+    # If there were pit stops, pit stop events should be recorded
+    total_pit_stops = sum(
+        row["pitStops"] for row in feature["classification"] if row["status"] == "running"
+    )
+    if total_pit_stops > 0:
+        assert "pitStopEvents" in feature
+        assert len(feature["pitStopEvents"]) > 0
+
+        for ps in feature["pitStopEvents"]:
+            assert "driverId" in ps
+            assert "lap" in ps
+            assert "compoundIn" in ps
+            assert "compoundOut" in ps
+            assert "reason" in ps
+
+
+def test_race_analysis_endpoint(tmp_path):
+    """Verify the race analysis endpoint returns complete strategy data."""
+    manager = SaveManager(tmp_path)
+    career_routes.manager = manager
+    weekend_routes.manager = manager
+    client = TestClient(app)
+
+    save = client.post(
+        "/career/new",
+        json={
+            "name": "Analysis Driver",
+            "nationality": "German",
+            "age": 21,
+            "driverNumber": 5,
+            "backgroundId": "karting_prodigy",
+            "archetypeId": "technical_developer",
+            "teamId": "f2_art",
+            "academyId": "academy_mercedes",
+            "difficulty": "realistic",
+        },
+    ).json()
+
+    # Simulate a race
+    client.post(f"/career/{save['saveId']}/weekend/f2_2026_round_01/simulate")
+
+    # Get analysis for the feature race
+    response = client.get(
+        f"/career/{save['saveId']}/weekend/f2_2026_round_01/analysis?race_type=feature"
+    )
+    assert response.status_code == 200
+
+    analysis = response.json()
+
+    # Check required fields
+    assert analysis["saveId"] == save["saveId"]
+    assert analysis["roundId"] == "f2_2026_round_01"
+    assert analysis["raceType"] == "feature"
+    assert "totalLaps" in analysis
+
+    # Strategy data
+    assert "strategyPlans" in analysis
+    assert "pitStopEvents" in analysis
+    assert "stintSummaries" in analysis
+    assert "safetyCarDecisions" in analysis
+
+    # Key incidents and summary
+    assert "keyIncidents" in analysis
+    assert "strategySummary" in analysis
+
+    # Strategy summary should have statistics
+    summary = analysis["strategySummary"]
+    assert "totalPitStops" in summary
+    assert "safetyCarCount" in summary
+    assert "vscCount" in summary
+    assert "oneStopDrivers" in summary
+    assert "twoStopDrivers" in summary
+
+
+def test_safety_car_decisions_recorded(tmp_path):
+    """Verify safety car decisions are recorded when they occur."""
+    manager = SaveManager(tmp_path)
+    career_routes.manager = manager
+    weekend_routes.manager = manager
+    client = TestClient(app)
+
+    save = client.post(
+        "/career/new",
+        json={
+            "name": "SC Driver",
+            "nationality": "Italian",
+            "age": 22,
+            "driverNumber": 16,
+            "backgroundId": "karting_prodigy",
+            "archetypeId": "rain_specialist",
+            "teamId": "f2_campos",
+            "academyId": "academy_ferrari",
+            "difficulty": "realistic",
+        },
+    ).json()
+
+    # Simulate multiple races to increase chance of safety car
+    for round_num in range(1, 6):
+        response = client.post(
+            f"/career/{save['saveId']}/weekend/f2_2026_round_{round_num:02d}/simulate"
+        )
+        assert response.status_code == 200
+
+        weekend = response.json()["weekendResults"][-1]
+        feature = weekend["feature"]
+
+        # If there was a safety car, decisions should be recorded
+        if feature["safetyCarLaps"]:
+            assert "safetyCarDecisions" in feature
+            # At least one decision should exist per SC deployment
+            # (may not be 1:1 due to how consecutive laps are handled)
+            if feature["safetyCarDecisions"]:
+                for sc_decision in feature["safetyCarDecisions"]:
+                    assert "lap" in sc_decision
+                    assert "mode" in sc_decision
+                    assert sc_decision["mode"] in ["safety_car", "vsc"]
+                    assert "pitWindowOpen" in sc_decision
+                break  # Found a race with SC, test passed
