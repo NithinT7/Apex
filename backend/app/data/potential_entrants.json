@@ -1,0 +1,191 @@
+{
+  "potential_entrants": [
+    {
+      "id": "porsche",
+      "name": "Porsche F1 Team",
+      "country": "Germany",
+      "entrant_type": "manufacturer",
+      "base_budget": 88,
+      "base_development": 82,
+      "likelihood_modifier": 10,
+      "interested": true
+    },
+    {
+      "id": "toyota",
+      "name": "Toyota Gazoo Racing",
+      "country": "Japan",
+      "entrant_type": "manufacturer",
+      "base_budget": 90,
+      "base_development": 80,
+      "likelihood_modifier": 5,
+      "interested": true
+    },
+    {
+      "id": "hyundai",
+      "name": "Hyundai N Racing",
+      "country": "South Korea",
+      "entrant_type": "manufacturer",
+      "base_budget": 82,
+      "base_development": 75,
+      "likelihood_modifier": -5,
+      "interested": true
+    },
+    {
+      "id": "andretti",
+      "name": "Andretti Global",
+      "country": "United States",
+      "entrant_type": "privateer",
+      "base_budget": 72,
+      "base_development": 70,
+      "likelihood_modifier": 15,
+      "interested": true
+    },
+    {
+      "id": "bmw",
+      "name": "BMW Motorsport",
+      "country": "Germany",
+      "entrant_type": "manufacturer",
+      "base_budget": 85,
+      "base_development": 78,
+      "likelihood_modifier": 0,
+      "interested": true
+    },
+    {
+      "id": "peugeot",
+      "name": "Peugeot Sport",
+      "country": "France",
+      "entrant_type": "manufacturer",
+      "base_budget": 75,
+      "base_development": 72,
+      "likelihood_modifier": -10,
+      "interested": true
+    },
+    {
+      "id": "jaguar",
+      "name": "Jaguar Racing",
+      "country": "United Kingdom",
+      "entrant_type": "manufacturer",
+      "base_budget": 78,
+      "base_development": 74,
+      "likelihood_modifier": 0,
+      "interested": true
+    },
+    {
+      "id": "honda_works",
+      "name": "Honda Racing F1",
+      "country": "Japan",
+      "entrant_type": "manufacturer",
+      "base_budget": 88,
+      "base_development": 85,
+      "likelihood_modifier": 5,
+      "interested": true
+    },
+    {
+      "id": "volkswagen",
+      "name": "Volkswagen Motorsport",
+      "country": "Germany",
+      "entrant_type": "manufacturer",
+      "base_budget": 80,
+      "base_development": 76,
+      "likelihood_modifier": -15,
+      "interested": true
+    },
+    {
+      "id": "dorilton",
+      "name": "Dorilton Racing",
+      "country": "United States",
+      "entrant_type": "privateer",
+      "base_budget": 68,
+      "base_development": 65,
+      "likelihood_modifier": 5,
+      "interested": true
+    },
+    {
+      "id": "hitech",
+      "name": "Hitech Grand Prix",
+      "country": "United Kingdom",
+      "entrant_type": "privateer",
+      "base_budget": 62,
+      "base_development": 68,
+      "likelihood_modifier": 10,
+      "interested": true
+    },
+    {
+      "id": "prema",
+      "name": "Prema Racing",
+      "country": "Italy",
+      "entrant_type": "privateer",
+      "base_budget": 65,
+      "base_development": 72,
+      "likelihood_modifier": 5,
+      "interested": true
+    },
+    {
+      "id": "genesis",
+      "name": "Genesis Motorsport",
+      "country": "South Korea",
+      "entrant_type": "manufacturer",
+      "base_budget": 78,
+      "base_development": 70,
+      "likelihood_modifier": -10,
+      "interested": true
+    },
+    {
+      "id": "ford_works",
+      "name": "Ford Performance Racing",
+      "country": "United States",
+      "entrant_type": "manufacturer",
+      "base_budget": 82,
+      "base_development": 75,
+      "likelihood_modifier": 0,
+      "interested": true
+    },
+    {
+      "id": "mazepin",
+      "name": "Uralkali Racing",
+      "country": "Russia",
+      "entrant_type": "privateer",
+      "base_budget": 70,
+      "base_development": 60,
+      "likelihood_modifier": -20,
+      "interested": true
+    }
+  ],
+  "takeover_investors": [
+    {
+      "id": "saudi_pif",
+      "name": "Saudi PIF",
+      "country": "Saudi Arabia",
+      "budget_boost": 25,
+      "development_boost": 10
+    },
+    {
+      "id": "qatar_sports",
+      "name": "Qatar Sports Investments",
+      "country": "Qatar",
+      "budget_boost": 22,
+      "development_boost": 8
+    },
+    {
+      "id": "tech_billionaire",
+      "name": "Tech Consortium",
+      "country": "United States",
+      "budget_boost": 18,
+      "development_boost": 12
+    },
+    {
+      "id": "automotive_group",
+      "name": "Automotive Investment Group",
+      "country": "Germany",
+      "budget_boost": 15,
+      "development_boost": 15
+    },
+    {
+      "id": "private_equity",
+      "name": "Private Equity Partners",
+      "country": "United Kingdom",
+      "budget_boost": 12,
+      "development_boost": 5
+    }
+  ]
+}
