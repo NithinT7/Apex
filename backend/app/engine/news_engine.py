@@ -71,25 +71,26 @@ def _player_form_story(
     player_position: int | None,
     date: str,
 ) -> NewsItem:
+    identity_clause = _identity_clause(player)
     if player_finish <= 1:
         headline = f"Paddock reacts to {player.name}'s breakthrough win"
         body = (
             f"The win has shifted expectations around {player.name}, with rival teams now treating "
-            "the campaign as more than a quiet development year."
+            f"the campaign as more than a quiet development year.{identity_clause}"
         )
         importance = 5
     elif player_finish <= 3:
         headline = f"{player.name}'s podium fuels fresh paddock interest"
         body = (
             f"Another front-running result has strengthened {player.name}'s case in the paddock, "
-            "especially with decision-makers watching race execution and marketability."
+            f"especially with decision-makers watching race execution and marketability.{identity_clause}"
         )
         importance = 4
     elif player_finish <= 8:
         headline = f"{player.name} keeps momentum with points finish"
         body = (
             f"A controlled points finish keeps the season narrative moving in the right direction. "
-            f"{_position_phrase(player_position)}"
+            f"{_position_phrase(player_position)}{identity_clause}"
         )
         importance = 3
     else:
@@ -109,6 +110,14 @@ def _player_form_story(
         linked_driver_ids=[player.id],
         importance=importance,
     )
+
+
+def _identity_clause(player: Driver) -> str:
+    trait = player.identity.primary_trait
+    if trait is None or player.identity.trait_scores.get(trait, 0) < 20:
+        return ""
+    label = trait.replace("_", " ")
+    return f" The paddock is also starting to frame them as a {label}."
 
 
 def _title_picture_story(

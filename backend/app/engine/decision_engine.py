@@ -5,6 +5,12 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 
+from app.engine.car_performance_engine import (
+    performance_composite,
+    race_car_score,
+    setup_confidence_score,
+    team_track_score,
+)
 from app.models.calendar import CalendarRound
 from app.models.driver import Driver
 from app.models.race import (
@@ -894,13 +900,15 @@ def _planned_pit_laps(
 
 
 def _strategy_style(team: Team) -> str:
-    if team.strategy >= 84:
+    profile = team.effective_car_profile()
+    strategy = profile.strategy_team
+    if strategy >= 84:
         return "balanced"
-    if team.strategy <= 66:
+    if strategy <= 66:
         return "aggressive"
-    if team.reliability >= 82 and team.car_performance < 82:
+    if profile.tire_wear >= 82 and profile.overall_performance < 82:
         return "long_run"
-    if team.car_performance >= 84:
+    if profile.overall_performance >= 84:
         return "aggressive"
     return "balanced"
 
@@ -957,7 +965,8 @@ def _safety_car_pit_window(safety_car: bool, lap: int, total_laps: int) -> bool:
 
 
 def _pit_wear_threshold(runner: Runner, base_threshold: float) -> float:
-    return base_threshold + (runner.team.strategy - 75) * 0.08
+    profile = runner.team.effective_car_profile()
+    return base_threshold + (profile.strategy_team - 75) * 0.08 + (profile.tire_wear - 75) * 0.05
 
 
 def _retirement_chance(
@@ -967,8 +976,10 @@ def _retirement_chance(
     lap: int,
     total_laps: int,
 ) -> float:
+    profile = runner.team.effective_car_profile()
     reliability_score = (
-        runner.team.reliability * 0.72
+        profile.reliability * 0.62
+        + profile.cooling * 0.10
         + runner.driver.attributes.awareness * 0.16
         + runner.driver.attributes.discipline * 0.12
     )
@@ -1147,7 +1158,16 @@ def _race_lap_time(
         + driver.attributes.tire_management * 0.12
         + wet_skill * 0.1
     )
-    team_score = team.car_performance * 0.78 + team.strategy * 0.12 + team.reliability * 0.1
+    car_score = race_car_score(team, track, weather)
+    setup_score = setup_confidence_score(team, driver.attributes.confidence)
+    context_score = max(45, min(100, weather.track_grip + (6 if weather.condition == "dry" else -weather.rain_intensity * 0.18)))
+    composite = performance_composite(
+        series=team.series,
+        car_score=car_score,
+        driver_score=round(race_score),
+        setup_score=setup_score,
+        context_score=round(context_score),
+    )
     tire_penalty = runner.tire_wear * (104 - driver.attributes.tire_management) / 2200
     weather_penalty = weather.rain_intensity * (105 - driver.attributes.wet_weather) / 1000
     grip_penalty = max(0, 74 - weather.track_grip) / 70
@@ -1157,8 +1177,7 @@ def _race_lap_time(
 
     return (
         _series_lap_time_base(track, team.series)
-        + (90 - race_score) * 0.028
-        + (90 - team_score) * (0.072 if team.series == "F1" else 0.05)
+        + (90 - composite) * (0.088 if team.series == "F1" else 0.066)
         + _race_trim_penalty(track, team.series)
         + tire_penalty
         + age_penalty
@@ -1200,17 +1219,20 @@ def _tire_wear_increment(runner: Runner, track: Track, weather: WeatherState, ra
         "wet": 1.0 if weather.condition == "wet" else 1.9,
     }.get(runner.tire_compound, 1.0)
     management_factor = 1 - max(-0.16, min(0.18, (runner.driver.attributes.tire_management - 75) / 220))
+    car_factor = 1 - max(-0.12, min(0.15, (runner.team.effective_car_profile().tire_wear - 75) / 240))
     grip_factor = 1 + max(0, 68 - weather.track_grip) / 180
-    return track.tire_deg / session_divisor * compound_multiplier * management_factor * grip_factor
+    return track.tire_deg / session_divisor * compound_multiplier * management_factor * car_factor * grip_factor
 
 
 def _component_wear_increment(runner: Runner, track: Track, weather: WeatherState, race_type: str) -> float:
     session_factor = 0.52 if race_type == "sprint" else 0.42
-    reliability_factor = 1 + max(0, 84 - runner.team.reliability) / 65
+    profile = runner.team.effective_car_profile()
+    reliability_factor = 1 + max(0, 84 - profile.reliability) / 65
+    cooling_factor = 1 + max(0, track.tire_deg - profile.cooling) / 220
     heat_factor = 1 + max(0, weather.track_temp - 36) / 80
     wet_factor = 0.92 if weather.condition != "dry" else 1
     push_factor = 1 + max(0, runner.driver.attributes.aggression - runner.driver.attributes.discipline) / 180
-    return session_factor * reliability_factor * heat_factor * wet_factor * push_factor
+    return session_factor * reliability_factor * cooling_factor * heat_factor * wet_factor * push_factor
 
 
 def _driver_mistake(runner: Runner, track: Track, weather: WeatherState, rng: random.Random, lap: int, total_laps: int) -> bool:
@@ -1287,29 +1309,46 @@ def _apply_ai_racecraft(runners: list[Runner], track: Track, rng: random.Random,
         if gap <= 0 or gap > gap_limit:
             continue
 
+        # Get car performance scores
+        attacker_car_score = team_track_score(attacker.team, track)
+        defender_car_score = team_track_score(defender.team, track)
+
+        # Car performance delta bonus: faster car attacking slower car gets a significant advantage
+        # This simulates real F1 where a Red Bull starting P15 easily passes midfield cars
+        car_delta = attacker_car_score - defender_car_score
+        car_delta_bonus = max(-8, min(15, car_delta * 0.45))
+
         tire_delta = defender.tire_wear - attacker.tire_wear
-        tire_attack_bonus = max(-8, min(10, tire_delta * 0.26))
+        tire_attack_bonus = max(-8, min(12, tire_delta * 0.28))
+
+        # Attack score now weights car performance more heavily
         attack_score = (
-            attacker.driver.attributes.racecraft * 0.34
-            + attacker.driver.attributes.aggression * 0.24
-            + attacker.driver.attributes.pace * 0.18
-            + attacker.team.car_performance * 0.18
+            attacker.driver.attributes.racecraft * 0.28
+            + attacker.driver.attributes.aggression * 0.20
+            + attacker.driver.attributes.pace * 0.14
+            + attacker_car_score * 0.24
+            + car_delta_bonus
             + tire_attack_bonus
-            + rng.uniform(-8, 8)
+            + rng.uniform(-7, 7)
         )
+
         defense_score = (
-            defender.driver.attributes.racecraft * 0.3
-            + defender.driver.attributes.awareness * 0.22
-            + defender.driver.attributes.discipline * 0.18
-            + defender.team.car_performance * 0.18
+            defender.driver.attributes.racecraft * 0.26
+            + defender.driver.attributes.awareness * 0.20
+            + defender.driver.attributes.discipline * 0.16
+            + defender_car_score * 0.22
             + max(-6, min(8, -tire_delta * 0.18))
             + rng.uniform(-6, 7)
         )
 
         pass_threshold = _overtake_score_threshold(track, tire_delta)
-        pass_gap = min(0.65, gap_limit * 0.82)
+        pass_gap = min(0.70, gap_limit * 0.85)
+
         if attack_score > defense_score + pass_threshold and gap < pass_gap:
-            attacker.cumulative_time = defender.cumulative_time - rng.uniform(0.015, 0.07)
+            time_gained = rng.uniform(0.015, 0.07)
+            if car_delta > 8:
+                time_gained = rng.uniform(0.04, 0.12)
+            attacker.cumulative_time = defender.cumulative_time - time_gained
             used_driver_ids.update({attacker.driver.id, defender.driver.id})
             if moves_reported < 2:
                 commentary.append(f"{attacker.driver.name} completes a move on {defender.driver.name}.")
@@ -1340,7 +1379,7 @@ def _race_pace_score(runner: Runner) -> float:
         + driver.attributes.racecraft * 0.22
         + driver.attributes.consistency * 0.16
         + driver.attributes.tire_management * 0.1
-        + runner.team.car_performance * 0.2
+        + runner.team.effective_car_profile().overall_performance * 0.2
     )
 
 

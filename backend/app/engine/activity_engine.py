@@ -12,6 +12,7 @@ from app.models.activity import (
     AvailableActivities,
 )
 from app.models.save_game import SaveGame
+from app.models.weekly_focus import FocusOutcome
 
 
 # Define all available activities
@@ -268,10 +269,13 @@ def perform_activity(save: SaveGame, activity_id: str, seed: int | None = None) 
 
 def advance_to_race_week(save: SaveGame) -> SaveGame:
     """
-    Advance time to the next race week, applying natural recovery.
+    Advance time to the next race week, applying natural recovery and weekly focus.
 
     Used when player wants to skip remaining between-race activities.
     """
+    # Import here to avoid circular dependency
+    from app.engine.weekly_focus_engine import apply_focus_and_advance, clear_focus_completions
+
     next_round = next((r for r in save.calendar if not r.completed), None)
     if next_round is None:
         return save
@@ -280,6 +284,15 @@ def advance_to_race_week(save: SaveGame) -> SaveGame:
     player = next((d for d in save.drivers if d.id == save.player_driver_id), None)
     if player is None:
         return save
+
+    # Apply weekly focus if one is active
+    focus_outcome: FocusOutcome | None = None
+    if save.development_profile and save.development_profile.active_focus_id:
+        save, focus_outcome = apply_focus_and_advance(save)
+        # Re-fetch player after focus application
+        player = next((d for d in save.drivers if d.id == save.player_driver_id), None)
+        if player is None:
+            return save
 
     # Calculate days skipped
     current = datetime.strptime(save.current_date, "%Y-%m-%d")
@@ -303,10 +316,13 @@ def advance_to_race_week(save: SaveGame) -> SaveGame:
 
     new_drivers = [updated_player if d.id == player.id else d for d in save.drivers]
 
-    # Clear activity completion flags for new break period
-    new_flags = {k: v for k, v in save.event_flags.items() if not k.startswith("activity_completed_")}
+    # Clear activity and focus completion flags for new break period
+    new_flags = {
+        k: v for k, v in save.event_flags.items()
+        if not k.startswith("activity_completed_") and not k.startswith("focus_completed_")
+    }
 
-    return save.model_copy(
+    updated_save = save.model_copy(
         update={
             "drivers": new_drivers,
             "current_date": next_round.start_date,
@@ -314,6 +330,8 @@ def advance_to_race_week(save: SaveGame) -> SaveGame:
             "event_flags": new_flags,
         }
     )
+
+    return updated_save
 
 
 def _generate_narrative(

@@ -3,7 +3,15 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
+from app.engine.car_performance_engine import (
+    performance_composite,
+    qualifying_car_score,
+    race_car_score,
+    setup_confidence_score,
+    team_track_score,
+)
 from app.models.calendar import CalendarRound
+from app.models.car_development import PracticeCorrelationReport
 from app.models.driver import Driver
 from app.models.race import (
     DecisionChoice,
@@ -19,6 +27,13 @@ from app.models.race import (
     RunningOrderEntry,
     WeatherState,
     WeekendResult,
+)
+from app.models.strategy import (
+    PitStopEvent,
+    RaceStrategyPlan,
+    SafetyCarDecisionContext,
+    StintSummary,
+    StrategyCall,
 )
 from app.models.save_game import SaveGame
 from app.models.team import Team
@@ -51,7 +66,11 @@ class Runner:
     status: str = "running"
 
 
-def simulate_weekend(save: SaveGame, round_id: str) -> WeekendResult:
+def simulate_weekend(
+    save: SaveGame,
+    round_id: str,
+    practice_correlation_reports: list[PracticeCorrelationReport] | None = None,
+) -> WeekendResult:
     calendar_round = _find_round(save, round_id)
     track = _find_track(save, calendar_round.track_id)
     drivers = [driver for driver in save.drivers if driver.series == calendar_round.series]
@@ -59,7 +78,7 @@ def simulate_weekend(save: SaveGame, round_id: str) -> WeekendResult:
     rng = random.Random(f"{save.random_seed}:{round_id}")
     weather = _weather(track, rng)
 
-    practice = _simulate_practice(drivers, teams, track, weather, rng)
+    practice = _simulate_practice(drivers, teams, track, weather, rng, practice_correlation_reports or [])
     qualifying = _simulate_qualifying(drivers, teams, track, weather, rng, series=calendar_round.series)
     qualifying_order = [entry.driver_id for entry in qualifying.classification]
     sprint_grid = sprint_grid_for_round(calendar_round, qualifying_order)
@@ -112,6 +131,7 @@ def _simulate_practice(
     track: Track,
     weather: WeatherState,
     rng: random.Random,
+    correlation_reports: list[PracticeCorrelationReport] | None = None,
 ) -> PracticeResult:
     rows: list[tuple[float, Driver, int]] = []
     for driver in drivers:
@@ -141,6 +161,7 @@ def _simulate_practice(
             )
             for index, (lap_time, driver, setup_score) in enumerate(rows, start=1)
         ],
+        correlation_reports=correlation_reports or [],
     )
 
 
@@ -324,17 +345,60 @@ def _qualifying_lap(
     weather: WeatherState,
     rng: random.Random,
 ) -> tuple[float, str]:
-    """Simulate a single qualifying lap attempt."""
+    """Simulate a single qualifying lap attempt.
+
+    Consistency strongly affects:
+    - Mistake probability (low consistency = more mistakes)
+    - Mistake severity (low consistency = bigger time loss)
+    - Traffic recovery (high consistency = better at handling disruption)
+    """
+    # Traffic chance: 8% base
     traffic = rng.random() < 0.08
-    mistake_threshold = (driver.attributes.consistency + driver.attributes.discipline) / 210
+
+    # Mistake probability is influenced by consistency, discipline, and composure
+    # We want meaningful differentiation:
+    # - Low consistency (50): ~12-15% mistake chance
+    # - Medium consistency (70): ~6-8% mistake chance
+    # - High consistency (90): ~2-4% mistake chance
+    consistency = driver.attributes.consistency
+    discipline = driver.attributes.discipline
+
+    # Pressure affects mistake chance - low pressure handling = more mistakes
+    pressure_factor = 1.0 + (70 - driver.attributes.pressure) * 0.003  # ±10% at extremes
+
+    # Base mistake chance: higher threshold = less likely to make mistake
+    # Scale: 0.85 at low stats, 0.98 at high stats
+    base_threshold = 0.82 + (consistency * 0.50 + discipline * 0.30 + driver.attributes.composure * 0.20) / 650
+
+    # Elite qualifiers get a bonus
     if driver.attributes.qualifying >= 82 and driver.attributes.pace >= 82:
-        mistake_threshold += 0.12
-    mistake = rng.random() > min(0.92, mistake_threshold)
+        base_threshold += 0.04
+
+    # Wet conditions increase mistake chance for everyone
+    wet_penalty = 0.06 if weather.condition != "dry" else 0.0
+
+    # Final mistake threshold (higher = less likely to make mistake)
+    mistake_threshold = min(0.98, base_threshold * pressure_factor - wet_penalty)
+    mistake = rng.random() > mistake_threshold
+
     lap_time = _single_lap_time(driver, team, track, weather, rng)
+
+    # Traffic penalty: consistent drivers recover better
     if traffic:
-        lap_time += rng.uniform(0.25, 0.85)
+        traffic_base = rng.uniform(0.25, 0.85)
+        # High consistency reduces traffic impact by up to 30%
+        traffic_recovery = max(0.7, 1.0 - (consistency - 60) * 0.0075)
+        lap_time += traffic_base * traffic_recovery
+
+    # Mistake penalty: varies more based on consistency
     if mistake:
-        lap_time += rng.uniform(0.35, 1.2)
+        # Low consistency: bigger mistakes (up to 1.5s)
+        # High consistency: smaller mistakes (0.2-0.7s)
+        mistake_severity_factor = 1.0 + (70 - consistency) * 0.015  # 1.3 at 50, 0.7 at 90
+        mistake_severity_factor = max(0.6, min(1.5, mistake_severity_factor))
+        mistake_base = rng.uniform(0.30, 0.90)
+        lap_time += mistake_base * mistake_severity_factor
+
     return lap_time, _qualifying_note(traffic, mistake)
 
 
@@ -444,25 +508,71 @@ def _simulate_race(
     safety_car_remaining = 0
     safety_car_mode = "none"
 
+    # Strategy event tracking
+    strategy_plans: list[RaceStrategyPlan] = []
+    pit_stop_events: list[PitStopEvent] = []
+    strategy_calls: list[StrategyCall] = []
+    safety_car_decisions: list[SafetyCarDecisionContext] = []
+
+    # Track stint data for each driver: {driver_id: [(start_lap, compound, lap_times, tire_wear_start)]}
+    stint_tracker: dict[str, list[dict]] = {}
+
+    # Record initial strategy plans and stint starts
+    for runner in runners:
+        strategy_plans.append(
+            RaceStrategyPlan(
+                driver_id=runner.driver.id,
+                planned_stops=runner.planned_stops,
+                planned_pit_laps=runner.planned_pit_laps or [],
+                starting_compound=runner.tire_compound,  # type: ignore[arg-type]
+                target_compounds=_target_compounds(calendar_round, runner),
+                strategy_style=runner.strategy_style,  # type: ignore[arg-type]
+            )
+        )
+        stint_tracker[runner.driver.id] = [{
+            "stint_number": 1,
+            "start_lap": 1,
+            "compound": runner.tire_compound,
+            "lap_times": [],
+            "tire_wear_start": 0.0,
+        }]
+
     for lap in range(1, total_laps + 1):
         commentary: list[str] = []
         decision_prompt: DecisionPrompt | None = None
         weather = _evolve_weather(weather, track, lap, total_laps, rng, commentary)
+        safety_car_trigger: str | None = None
         if safety_car_remaining == 0 and rng.randint(1, 1000) <= max(1, track.safety_car_chance // 24):
             incident = _random_neutralization_incident(runners, track, rng)
             if incident is not None:
                 safety_car_mode, retired_driver_id, incident_lines = incident
                 safety_car_remaining = rng.randint(1, 2)
+                safety_car_trigger = f"incident_{retired_driver_id}"
                 if retired_driver_id not in dnfs:
                     dnfs.append(retired_driver_id)
                 commentary.extend(incident_lines)
 
         safety_car = safety_car_remaining > 0
+        is_new_safety_car = safety_car and lap not in safety_car_laps
         if safety_car and safety_car_mode == "safety_car":
             safety_car_laps.append(lap)
             _compress_field_for_safety_car(runners, rng)
         elif safety_car:
             safety_car_laps.append(lap)
+
+        # Record safety car decision context when safety car first deploys
+        if is_new_safety_car and safety_car_trigger:
+            pit_window_open = max(2, int(total_laps * 0.18)) <= lap <= total_laps - 4
+            safety_car_decisions.append(
+                SafetyCarDecisionContext(
+                    id=f"sc_{lap}_{safety_car_mode}",
+                    lap=lap,
+                    mode=safety_car_mode,  # type: ignore[arg-type]
+                    trigger=safety_car_trigger,
+                    pit_window_open=pit_window_open,
+                    decision="no_call",
+                )
+            )
 
         player_runner = _runner_for(runners, "player_driver")
         if player_runner is not None:
@@ -495,14 +605,51 @@ def _simulate_race(
                 runner.status = "dnf"
                 dnfs.append(runner.driver.id)
                 if rng.random() < _crash_retirement_share(calendar_round, runner, track, lap, total_laps):
-                    commentary.append(f"{runner.driver.name} crashes out and is stopped near the racing line.")
-                    if not safety_car:
-                        safety_car = True
-                        safety_car_remaining = max(safety_car_remaining, rng.randint(1, 2))
-                        safety_car_mode = "safety_car"
-                        if lap not in safety_car_laps:
-                            safety_car_laps.append(lap)
-                    commentary.append("Safety Car deployed while marshals recover the car.")
+                    crash_neutralization = _crash_neutralization_mode(track, rng)
+                    if crash_neutralization is None:
+                        commentary.append(f"{runner.driver.name} crashes out but ends up in the gravel trap safely.")
+                    elif crash_neutralization == "vsc":
+                        commentary.append(f"{runner.driver.name} crashes out at a slow corner.")
+                        if not safety_car:
+                            safety_car = True
+                            safety_car_remaining = max(safety_car_remaining, 1)
+                            safety_car_mode = "vsc"
+                            if lap not in safety_car_laps:
+                                safety_car_laps.append(lap)
+                            # Record safety car decision
+                            pit_window_open = max(2, int(total_laps * 0.18)) <= lap <= total_laps - 4
+                            safety_car_decisions.append(
+                                SafetyCarDecisionContext(
+                                    id=f"sc_{lap}_vsc_crash",
+                                    lap=lap,
+                                    mode="vsc",
+                                    trigger=f"crash_{runner.driver.id}",
+                                    pit_window_open=pit_window_open,
+                                    decision="no_call",
+                                )
+                            )
+                        commentary.append("Virtual Safety Car deployed for debris cleanup.")
+                    else:
+                        commentary.append(f"{runner.driver.name} crashes out and is stopped near the racing line.")
+                        if not safety_car:
+                            safety_car = True
+                            safety_car_remaining = max(safety_car_remaining, rng.randint(1, 2))
+                            safety_car_mode = "safety_car"
+                            if lap not in safety_car_laps:
+                                safety_car_laps.append(lap)
+                            # Record safety car decision
+                            pit_window_open = max(2, int(total_laps * 0.18)) <= lap <= total_laps - 4
+                            safety_car_decisions.append(
+                                SafetyCarDecisionContext(
+                                    id=f"sc_{lap}_sc_crash",
+                                    lap=lap,
+                                    mode="safety_car",
+                                    trigger=f"crash_{runner.driver.id}",
+                                    pit_window_open=pit_window_open,
+                                    decision="no_call",
+                                )
+                            )
+                        commentary.append("Safety Car deployed while marshals recover the car.")
                 else:
                     commentary.append(f"{runner.driver.name} is out with a mechanical issue.")
                     recovery_mode = _stranded_recovery_mode(runner, track, rng)
@@ -512,6 +659,18 @@ def _simulate_race(
                         safety_car_mode = recovery_mode
                         if lap not in safety_car_laps:
                             safety_car_laps.append(lap)
+                        # Record safety car decision
+                        pit_window_open = max(2, int(total_laps * 0.18)) <= lap <= total_laps - 4
+                        safety_car_decisions.append(
+                            SafetyCarDecisionContext(
+                                id=f"sc_{lap}_{recovery_mode}_mechanical",
+                                lap=lap,
+                                mode=recovery_mode,  # type: ignore[arg-type]
+                                trigger=f"mechanical_{runner.driver.id}",
+                                pit_window_open=pit_window_open,
+                                decision="no_call",
+                            )
+                        )
                         if recovery_mode == "safety_car":
                             commentary.append("Safety Car deployed because the car is stranded near the racing line.")
                         else:
@@ -537,14 +696,55 @@ def _simulate_race(
             if runner.driver.id == "player_driver" and runner.component_wear > 76 and lap % 4 == 0:
                 commentary.append(f"Engineer: power unit temperatures are high, component wear at {runner.component_wear:.0f}%.")
 
+            # Record lap time for stint tracking
+            if runner.driver.id in stint_tracker and stint_tracker[runner.driver.id]:
+                stint_tracker[runner.driver.id][-1]["lap_times"].append(lap_time)
+
             if _should_pit(calendar_round, session_type, runner, lap, total_laps, track, safety_car, runners):
+                old_compound = runner.tire_compound
+                old_tire_wear = runner.tire_wear
+                position_before = _position_of(runners, runner.driver.id) or 0
                 pit_loss = _pit_loss(calendar_round, rng, safety_car)
                 runner.cumulative_time += pit_loss
                 runner.last_lap_time = (runner.last_lap_time or lap_time) + pit_loss
                 runner.pit_stops += 1
                 runner.tire_age = 0
                 runner.tire_wear = 0
-                runner.tire_compound = _next_compound(calendar_round, runner)
+                new_compound = _next_compound(calendar_round, runner)
+                runner.tire_compound = new_compound
+
+                # Finalize current stint and start new one
+                if runner.driver.id in stint_tracker and stint_tracker[runner.driver.id]:
+                    current_stint = stint_tracker[runner.driver.id][-1]
+                    current_stint["end_lap"] = lap
+                    current_stint["tire_wear_end"] = old_tire_wear
+
+                    # Start new stint
+                    stint_tracker[runner.driver.id].append({
+                        "stint_number": len(stint_tracker[runner.driver.id]) + 1,
+                        "start_lap": lap + 1,
+                        "compound": new_compound,
+                        "lap_times": [],
+                        "tire_wear_start": 0.0,
+                    })
+
+                # Determine pit stop reason
+                pit_reason = _determine_pit_reason(runner, lap, total_laps, safety_car, old_tire_wear)
+
+                # Record pit stop event
+                pit_stop_events.append(
+                    PitStopEvent(
+                        id=f"{runner.driver.id}_pit_{runner.pit_stops}",
+                        driver_id=runner.driver.id,
+                        lap=lap,
+                        compound_in=old_compound,  # type: ignore[arg-type]
+                        compound_out=new_compound,  # type: ignore[arg-type]
+                        pit_loss=round(pit_loss, 3),
+                        under_safety_car=safety_car,
+                        reason=pit_reason,
+                    )
+                )
+
                 if runner.driver.id == "player_driver":
                     commentary.append(f"You pit for {runner.tire_compound} tyres and rejoin in traffic.")
 
@@ -568,6 +768,34 @@ def _simulate_race(
     ]
     winner_time = next((runner.cumulative_time for runner in classified if runner.status == "running"), classified[0].cumulative_time)
     fastest_lap_bonus_driver = _fastest_lap_bonus_driver(calendar_round, classified)
+
+    # Finalize last stint for each runner and generate stint summaries
+    stint_summaries: list[StintSummary] = []
+    for runner in runners:
+        if runner.driver.id in stint_tracker:
+            stints = stint_tracker[runner.driver.id]
+            # Finalize the last stint
+            if stints and "end_lap" not in stints[-1]:
+                stints[-1]["end_lap"] = total_laps
+                stints[-1]["tire_wear_end"] = runner.tire_wear
+
+            # Generate stint summaries
+            for stint_data in stints:
+                lap_times = stint_data.get("lap_times", [])
+                avg_lap = round(sum(lap_times) / len(lap_times), 3) if lap_times else None
+                stint_summaries.append(
+                    StintSummary(
+                        driver_id=runner.driver.id,
+                        stint_number=stint_data["stint_number"],
+                        start_lap=stint_data["start_lap"],
+                        end_lap=stint_data.get("end_lap", total_laps),
+                        compound=stint_data["compound"],  # type: ignore[arg-type]
+                        average_lap_time=avg_lap,
+                        tire_wear_start=stint_data.get("tire_wear_start", 0.0),
+                        tire_wear_end=stint_data.get("tire_wear_end"),
+                    )
+                )
+
     return RaceResult(
         race_id=f"{track.id}_{session_type}",
         session_type=session_type,  # type: ignore[arg-type]
@@ -595,6 +823,11 @@ def _simulate_race(
         decision_prompts=decision_prompts,
         safety_car_laps=safety_car_laps,
         dnfs=dnfs,
+        strategy_plans=strategy_plans,
+        pit_stop_events=pit_stop_events,
+        stint_summaries=stint_summaries,
+        strategy_calls=strategy_calls,
+        safety_car_decisions=safety_car_decisions,
     )
 
 
@@ -692,6 +925,23 @@ def _pit_loss(calendar_round: CalendarRound, rng: random.Random, safety_car: boo
     return base_loss + rng.uniform(-0.8, 1.8)
 
 
+def _determine_pit_reason(
+    runner: Runner, lap: int, total_laps: int, safety_car: bool, tire_wear: float
+) -> str:
+    """Determine the reason for a pit stop."""
+    if safety_car:
+        return "safety_car_opportunity"
+    if tire_wear >= 75:
+        return "tire_degradation"
+    if runner.planned_pit_laps and lap in runner.planned_pit_laps:
+        return "planned_stop"
+    if lap >= total_laps - 3:
+        return "late_race_gamble"
+    if tire_wear >= 55:
+        return "tire_wear_concern"
+    return "strategic"
+
+
 def _next_compound(calendar_round: CalendarRound, runner: Runner) -> str:
     if calendar_round.series == "F2":
         return "hard"
@@ -728,6 +978,32 @@ def _starting_compound(
     if track.tire_deg >= 68:
         return "medium" if rng.random() < 0.74 else "hard"
     return "medium" if rng.random() < 0.62 else "soft"
+
+
+def _target_compounds(calendar_round: CalendarRound, runner: Runner) -> list[str]:
+    """Determine target compounds for race strategy based on planned stops."""
+    starting = runner.tire_compound
+    stops = runner.planned_stops
+
+    if stops == 0:
+        return [starting]
+
+    # Common strategies based on starting compound
+    if starting == "soft":
+        if stops == 1:
+            return ["soft", "medium"]
+        return ["soft", "hard", "medium"]
+    elif starting == "medium":
+        if stops == 1:
+            return ["medium", "hard"]
+        return ["medium", "hard", "soft"]
+    elif starting == "hard":
+        if stops == 1:
+            return ["hard", "medium"]
+        return ["hard", "medium", "soft"]
+    else:
+        # Wet compounds
+        return [starting] * (stops + 1)
 
 
 def _planned_stop_count(
@@ -785,13 +1061,15 @@ def _planned_pit_laps(
 
 
 def _strategy_style(team: Team) -> str:
-    if team.strategy >= 84:
+    profile = team.effective_car_profile()
+    strategy = profile.strategy_team
+    if strategy >= 84:
         return "balanced"
-    if team.strategy <= 66:
+    if strategy <= 66:
         return "aggressive"
-    if team.reliability >= 82 and team.car_performance < 82:
+    if profile.tire_wear >= 82 and profile.overall_performance < 82:
         return "long_run"
-    if team.car_performance >= 84:
+    if profile.overall_performance >= 84:
         return "aggressive"
     return "balanced"
 
@@ -836,7 +1114,8 @@ def _safety_car_pit_window(safety_car: bool, lap: int, total_laps: int) -> bool:
 
 
 def _pit_wear_threshold(runner: Runner, base_threshold: float) -> float:
-    return base_threshold + (runner.team.strategy - 75) * 0.08
+    profile = runner.team.effective_car_profile()
+    return base_threshold + (profile.strategy_team - 75) * 0.08 + (profile.tire_wear - 75) * 0.05
 
 
 def _retirement_chance(
@@ -846,8 +1125,10 @@ def _retirement_chance(
     lap: int,
     total_laps: int,
 ) -> float:
+    profile = runner.team.effective_car_profile()
     reliability_score = (
-        runner.team.reliability * 0.72
+        profile.reliability * 0.62
+        + profile.cooling * 0.10
         + runner.driver.attributes.awareness * 0.16
         + runner.driver.attributes.discipline * 0.12
     )
@@ -928,6 +1209,36 @@ def _stranded_recovery_mode(runner: Runner, track: Track, rng: random.Random) ->
     return "safety_car" if rng.random() < (0.5 if track.street_circuit else 0.28) else "vsc"
 
 
+def _crash_neutralization_mode(track: Track, rng: random.Random) -> str | None:
+    """Determine if a crash needs neutralization and what type.
+
+    In real F1, not every crash needs a safety car:
+    - Some end in gravel traps or safe runoff (no neutralization)
+    - Some need VSC for quick debris cleanup
+    - Only serious crashes near the racing line need full SC
+
+    Street circuits have fewer runoff areas so more neutralizations.
+    """
+    # Base chance of needing any neutralization
+    if track.street_circuit:
+        # Street circuits: ~65% need neutralization (less runoff)
+        needs_neutralization = rng.random() < 0.65
+    else:
+        # Permanent circuits: ~40% need neutralization (more gravel/runoff)
+        needs_neutralization = rng.random() < 0.40
+
+    if not needs_neutralization:
+        return None
+
+    # Of crashes needing neutralization, what type?
+    if track.street_circuit:
+        # Street circuits: 55% full SC, 45% VSC
+        return "safety_car" if rng.random() < 0.55 else "vsc"
+    else:
+        # Permanent circuits: 35% full SC, 65% VSC
+        return "safety_car" if rng.random() < 0.35 else "vsc"
+
+
 def _single_lap_time(
     driver: Driver,
     team: Team,
@@ -938,10 +1249,45 @@ def _single_lap_time(
 ) -> float:
     wet_skill = driver.attributes.wet_weather if weather.condition != "dry" else driver.attributes.pace
     driver_score = driver.attributes.qualifying * 0.38 + driver.attributes.pace * 0.34 + wet_skill * 0.12 + driver.attributes.adaptability * 0.1
-    team_score = team.car_performance * 0.86 + team.strategy * 0.08 + setup_bonus * 0.06
+    car_score = qualifying_car_score(team, track, weather)
+    setup_score = setup_confidence_score(team, driver.attributes.confidence, setup_bonus)
+    context_score = max(45, min(100, 100 - weather.rain_intensity * 0.42 + max(0, weather.track_grip - 70) * 0.18))
+    composite = performance_composite(
+        series=team.series,
+        car_score=car_score,
+        driver_score=round(driver_score),
+        setup_score=setup_score,
+        context_score=round(context_score),
+    )
     weather_penalty = weather.rain_intensity * (105 - driver.attributes.wet_weather) / 900
-    car_weight = 0.07 if team.series == "F1" else 0.048
-    return _series_lap_time_base(track, team.series) + (90 - driver_score) * 0.032 + (90 - team_score) * car_weight + weather_penalty + rng.uniform(-0.28, 0.28)
+    lap_factor = 0.085 if team.series == "F1" else 0.065
+
+    # Randomness is scaled by consistency attribute
+    # High consistency (90+) = tighter window, more predictable
+    # Low consistency (50) = wider window, more variance
+    # Base range: F1 ±0.22s, F2 ±0.30s at consistency 70
+    # At consistency 90: range shrinks by ~35% (more reliable)
+    # At consistency 50: range grows by ~50% (more volatile)
+    consistency = driver.attributes.consistency
+    consistency_factor = 1.0 + (70 - consistency) * 0.025  # 1.5 at 50, 0.5 at 90, 1.0 at 70
+    consistency_factor = max(0.5, min(1.6, consistency_factor))  # Clamp to reasonable range
+
+    base_randomness = 0.22 if team.series == "F1" else 0.30
+    randomness_range = base_randomness * consistency_factor
+
+    # Asymmetric randomness: inconsistent drivers more likely to lose time than gain
+    # Consistent drivers have symmetric variance around their true pace
+    if consistency < 65:
+        # Low consistency: biased toward slower laps (negative surprise rare)
+        randomness = rng.uniform(-randomness_range * 0.6, randomness_range)
+    elif consistency >= 85:
+        # High consistency: symmetric, small variance
+        randomness = rng.uniform(-randomness_range, randomness_range)
+    else:
+        # Medium consistency: slight bias toward slower
+        randomness = rng.uniform(-randomness_range * 0.85, randomness_range)
+
+    return _series_lap_time_base(track, team.series) + (90 - composite) * lap_factor + weather_penalty + randomness
 
 
 def _race_lap_time(
@@ -958,7 +1304,16 @@ def _race_lap_time(
     team = runner.team
     wet_skill = driver.attributes.wet_weather if weather.condition != "dry" else driver.attributes.pace
     race_score = driver.attributes.pace * 0.28 + driver.attributes.racecraft * 0.24 + driver.attributes.consistency * 0.18 + driver.attributes.tire_management * 0.12 + wet_skill * 0.1
-    team_score = team.car_performance * 0.78 + team.strategy * 0.12 + team.reliability * 0.1
+    car_score = race_car_score(team, track, weather)
+    setup_score = setup_confidence_score(team, driver.attributes.confidence)
+    context_score = max(45, min(100, weather.track_grip + (6 if weather.condition == "dry" else -weather.rain_intensity * 0.18)))
+    composite = performance_composite(
+        series=team.series,
+        car_score=car_score,
+        driver_score=round(race_score),
+        setup_score=setup_score,
+        context_score=round(context_score),
+    )
     tire_penalty = runner.tire_wear * (104 - driver.attributes.tire_management) / 2200
     weather_penalty = weather.rain_intensity * (105 - driver.attributes.wet_weather) / 1000
     grip_penalty = max(0, 74 - weather.track_grip) / 70
@@ -967,8 +1322,7 @@ def _race_lap_time(
     age_penalty = _tire_age_penalty(runner)
     return (
         _series_lap_time_base(track, team.series)
-        + (90 - race_score) * 0.028
-        + (90 - team_score) * (0.072 if team.series == "F1" else 0.05)
+        + (90 - composite) * (0.088 if team.series == "F1" else 0.066)
         + _race_trim_penalty(track, team.series)
         + tire_penalty
         + age_penalty
@@ -1010,17 +1364,20 @@ def _tire_wear_increment(runner: Runner, track: Track, weather: WeatherState, se
         "wet": 1.0 if weather.condition == "wet" else 1.9,
     }.get(runner.tire_compound, 1.0)
     management_factor = 1 - max(-0.16, min(0.18, (runner.driver.attributes.tire_management - 75) / 220))
+    car_factor = 1 - max(-0.12, min(0.15, (runner.team.effective_car_profile().tire_wear - 75) / 240))
     grip_factor = 1 + max(0, 68 - weather.track_grip) / 180
-    return track.tire_deg / session_divisor * compound_multiplier * management_factor * grip_factor
+    return track.tire_deg / session_divisor * compound_multiplier * management_factor * car_factor * grip_factor
 
 
 def _component_wear_increment(runner: Runner, track: Track, weather: WeatherState, session_type: str) -> float:
     session_factor = 0.52 if session_type == "sprint" else 0.42
-    reliability_factor = 1 + max(0, 84 - runner.team.reliability) / 65
+    profile = runner.team.effective_car_profile()
+    reliability_factor = 1 + max(0, 84 - profile.reliability) / 65
+    cooling_factor = 1 + max(0, track.tire_deg - profile.cooling) / 220
     heat_factor = 1 + max(0, weather.track_temp - 36) / 80
     wet_factor = 0.92 if weather.condition != "dry" else 1
     push_factor = 1 + max(0, runner.driver.attributes.aggression - runner.driver.attributes.discipline) / 180
-    return session_factor * reliability_factor * heat_factor * wet_factor * push_factor
+    return session_factor * reliability_factor * cooling_factor * heat_factor * wet_factor * push_factor
 
 
 def _driver_mistake(runner: Runner, track: Track, weather: WeatherState, rng: random.Random, lap: int, total_laps: int) -> bool:
@@ -1091,29 +1448,49 @@ def _apply_ai_racecraft(runners: list[Runner], track: Track, rng: random.Random,
         if gap <= 0 or gap > gap_limit:
             continue
 
+        # Get car performance scores
+        attacker_car_score = team_track_score(attacker.team, track)
+        defender_car_score = team_track_score(defender.team, track)
+
+        # Car performance delta bonus: faster car attacking slower car gets a significant advantage
+        # This simulates real F1 where a Red Bull starting P15 easily passes midfield cars
+        # Range: -8 (much slower car attacking) to +15 (much faster car attacking)
+        car_delta = attacker_car_score - defender_car_score
+        car_delta_bonus = max(-8, min(15, car_delta * 0.45))
+
         tire_delta = defender.tire_wear - attacker.tire_wear
-        tire_attack_bonus = max(-8, min(10, tire_delta * 0.26))
+        tire_attack_bonus = max(-8, min(12, tire_delta * 0.28))
+
+        # Attack score now weights car performance more heavily
         attack_score = (
-            attacker.driver.attributes.racecraft * 0.34
-            + attacker.driver.attributes.aggression * 0.24
-            + attacker.driver.attributes.pace * 0.18
-            + attacker.team.car_performance * 0.18
+            attacker.driver.attributes.racecraft * 0.28
+            + attacker.driver.attributes.aggression * 0.20
+            + attacker.driver.attributes.pace * 0.14
+            + attacker_car_score * 0.24  # Increased car weight from 0.18
+            + car_delta_bonus           # NEW: bonus for faster car
             + tire_attack_bonus
-            + rng.uniform(-8, 8)
+            + rng.uniform(-7, 7)
         )
+
+        # Defense score - car matters for defending too
         defense_score = (
-            defender.driver.attributes.racecraft * 0.3
-            + defender.driver.attributes.awareness * 0.22
-            + defender.driver.attributes.discipline * 0.18
-            + defender.team.car_performance * 0.18
+            defender.driver.attributes.racecraft * 0.26
+            + defender.driver.attributes.awareness * 0.20
+            + defender.driver.attributes.discipline * 0.16
+            + defender_car_score * 0.22  # Increased car weight from 0.18
             + max(-6, min(8, -tire_delta * 0.18))
             + rng.uniform(-6, 7)
         )
 
         pass_threshold = _overtake_score_threshold(track, tire_delta)
-        pass_gap = min(0.65, gap_limit * 0.82)
+        pass_gap = min(0.70, gap_limit * 0.85)  # Slightly easier to complete pass
+
         if attack_score > defense_score + pass_threshold and gap < pass_gap:
-            attacker.cumulative_time = defender.cumulative_time - rng.uniform(0.015, 0.07)
+            # Pass completed - faster cars gain more time
+            time_gained = rng.uniform(0.015, 0.07)
+            if car_delta > 8:  # Much faster car gets clean pass
+                time_gained = rng.uniform(0.04, 0.12)
+            attacker.cumulative_time = defender.cumulative_time - time_gained
             used_driver_ids.update({attacker.driver.id, defender.driver.id})
             if moves_reported < 2:
                 commentary.append(f"{attacker.driver.name} completes a move on {defender.driver.name}.")
@@ -1146,7 +1523,7 @@ def _race_pace_score(runner: Runner) -> float:
         + driver.attributes.racecraft * 0.22
         + driver.attributes.consistency * 0.16
         + driver.attributes.tire_management * 0.1
-        + runner.team.car_performance * 0.2
+        + runner.team.effective_car_profile().overall_performance * 0.2
     )
 
 

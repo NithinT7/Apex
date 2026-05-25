@@ -8,6 +8,9 @@ import random
 from typing import Literal
 
 from app.data.loaders import get_f1_calendar, get_f2_calendar
+from app.engine.ai_development_engine import apply_ai_season_development
+from app.engine.car_development_engine import offseason_car_evolution
+from app.engine.car_performance_engine import apply_profile_delta
 from app.engine.development_engine import apply_start_of_season_development, f1_development_cap
 from app.models.save_game import (
     ChampionshipEntry,
@@ -46,7 +49,18 @@ def apply_in_season_team_development(save: SaveGame, completed_rounds: int) -> t
             delta += rng.choice([-1, 1])
         if delta:
             movers.append((team.name, delta))
-        updated_teams.append(team.model_copy(update={"car_performance": clamp_rating(team.car_performance + delta)}))
+        if delta and team.car_state is not None:
+            profile = apply_profile_delta(team.effective_car_profile(), {"overall_performance": delta})
+            updated_teams.append(
+                team.model_copy(
+                    update={
+                        "car_performance": clamp_rating(team.car_performance + delta),
+                        "car_state": team.car_state.model_copy(update={"profile": profile}),
+                    }
+                )
+            )
+        else:
+            updated_teams.append(team.model_copy(update={"car_performance": clamp_rating(team.car_performance + delta)}))
 
     news: list[NewsItem] = []
     if movers:
@@ -109,49 +123,7 @@ def _driver_core_rating(driver) -> int:
 
 
 def apply_offseason_team_evolution(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
-    rng = random.Random(f"{save.random_seed}:{save.season}:offseason_team_evolution")
-    regulation_reset = (save.season + 1) % 4 == 0
-    updated_teams: list[Team] = []
-    for team in save.teams:
-        if regulation_reset and team.series == "F1":
-            field_pull = round((82 - team.car_performance) * 0.45)
-            reset_swing = rng.randint(-9, 9)
-            performance_delta = field_pull + reset_swing + (team.development_rate - 80) // 8
-        else:
-            performance_delta = rng.randint(-3, 4) + (team.development_rate - 78) // 12
-
-        reliability_delta = rng.randint(-2, 3) + (team.development_rate - 78) // 18
-        strategy_delta = rng.choice([-1, 0, 0, 1])
-        updated_teams.append(
-            team.model_copy(
-                update={
-                    "car_performance": clamp_rating(team.car_performance + performance_delta),
-                    "reliability": clamp_rating(team.reliability + reliability_delta),
-                    "strategy": clamp_rating(team.strategy + strategy_delta),
-                }
-            )
-        )
-
-    headline = (
-        "Major regulation reset shakes up the F1 grid"
-        if regulation_reset
-        else "Teams reveal offseason development gains"
-    )
-    body = (
-        "New technical rules have compressed some gaps and created room for surprise movers."
-        if regulation_reset
-        else "Winter upgrades change the competitive picture heading into the new season."
-    )
-    return save.model_copy(update={"teams": updated_teams}), [
-        NewsItem(
-            id=f"offseason_development_{uuid.uuid4().hex[:8]}",
-            date=save.current_date,
-            category="system",
-            headline=headline,
-            body=body,
-            importance=5 if regulation_reset else 3,
-        )
-    ]
+    return offseason_car_evolution(save)
 
 
 def get_championship_position(save: SaveGame, driver_id: str) -> int | None:
@@ -538,7 +510,8 @@ def transition_to_offseason(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
     """
     Transition the save to offseason after the final race.
 
-    Generates season summary, processes contracts, and prepares for next season.
+    Generates season summary, processes contracts, applies AI development,
+    and prepares for next season.
     """
     if not is_season_complete(save):
         return save, []
@@ -562,6 +535,12 @@ def transition_to_offseason(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
         }
     )
 
+    # Apply AI driver development at season end
+    updated_save, ai_dev_news = apply_ai_season_development(
+        updated_save, checkpoint="season_end"
+    )
+    news.extend(ai_dev_news)
+
     # Process contract renewals
     updated_save, contract_news = process_contract_renewals(updated_save)
     news.extend(contract_news)
@@ -581,13 +560,18 @@ def prepare_next_season(save: SaveGame) -> SaveGame:
     - Increments season number
     - Loads appropriate calendar based on player's series
     - Resets standings
-    - Ages drivers
+    - Ages drivers (already done in AI development)
+    - Applies player and AI development
     - Updates to preseason phase
     """
     if save.phase != "offseason":
         return save
 
+    # Apply player development at season start
     save = apply_start_of_season_development(save)
+
+    # Apply AI development at season start (smaller pre-season bonuses)
+    save, _ = apply_ai_season_development(save, checkpoint="season_start")
 
     # Increment season
     new_season = save.season + 1

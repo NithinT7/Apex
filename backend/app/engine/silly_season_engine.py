@@ -6,6 +6,7 @@ import random
 import uuid
 from typing import Literal
 
+from app.engine.identity_engine import identity_team_fit_bonus
 from app.models.driver import Driver
 from app.models.save_game import Contract, NewsItem, SaveGame
 from app.models.team import Team
@@ -35,6 +36,17 @@ CONTENDER_PERFORMANCE = 88
 UPPER_MIDFIELD_PERFORMANCE = 81
 LOWER_MIDFIELD_PERFORMANCE = 72
 
+# Expected championship positions based on car performance
+# This is used to detect drivers who are outperforming their car
+CAR_PERFORMANCE_TO_EXPECTED_POSITION = {
+    # (min_car_perf, max_car_perf): (expected_best, expected_worst)
+    (92, 100): (1, 4),    # Top car: should be P1-P4
+    (88, 91): (3, 8),     # Contender: P3-P8
+    (81, 87): (6, 14),    # Upper midfield: P6-P14
+    (72, 80): (10, 18),   # Lower midfield: P10-P18
+    (0, 71): (14, 22),    # Backmarker: P14-P22
+}
+
 # Only the major real-world-style programmes exist in the sim. Smaller teams
 # can still act as historical affiliate/customer landing spots.
 ACADEMY_TEAM_AFFINITY: dict[str, dict[str, int]] = {
@@ -60,6 +72,137 @@ ACADEMY_TEAM_AFFINITY: dict[str, dict[str, int]] = {
         "f1_alpine": 28,
     },
 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DRIVER-TEAM RELATIONSHIP HISTORY
+# Based on real F1 patterns: drivers dropped by top teams rarely return
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Drivers who were dropped/demoted by teams - they won't return
+# Format: driver_id -> list of team_ids that dropped them
+DROPPED_BY_TEAM: dict[str, list[str]] = {
+    "alex_albon": ["f1_red_bull"],      # Dropped after 2020, went to Williams
+    "pierre_gasly": ["f1_red_bull"],    # Demoted to AlphaTauri after 2019
+    "daniil_kvyat": ["f1_red_bull"],    # Dropped multiple times
+    "nyck_de_vries": ["f1_racing_bulls"],  # Dropped after half a season
+    "daniel_ricciardo": ["f1_red_bull", "f1_mclaren"],  # Left RB, dropped by McLaren
+    "sebastian_vettel": ["f1_ferrari"],  # Not renewed after 2020
+    "valtteri_bottas": ["f1_mercedes"],  # Replaced by Russell
+    "sergio_perez": ["f1_mclaren"],      # Dropped after 2013
+}
+
+# Teams considered "ambitious projects" that can attract veteran drivers
+# even if their car is worse - based on investment, development, trajectory
+AMBITIOUS_PROJECT_TEAMS: set[str] = {
+    "f1_aston_martin",  # Stroll investment, new factory
+    "f1_williams",      # Dorilton investment, historic team
+    "f1_audi",          # Manufacturer backing coming
+    "f1_alpine",        # Renault works team
+}
+
+# Real F1 move patterns (2020-2025) for reference:
+# - Hamilton RB->McLaren->Merc->Ferrari (only moved for championships)
+# - Alonso Renault->McLaren->Ferrari->Alpine->AM (chased competitive cars)
+# - Sainz TR->Renault->McLaren->Ferrari->Williams (took best available)
+# - Ricciardo RB->Renault->McLaren->RB(reserve) (left top team, couldn't return)
+# - Vettel RB->Ferrari->AM->retired (stepped down gracefully)
+# - Bottas Merc->Alfa (no top seat, took midfield)
+# - Gasly RB->AT->Alpine (never returned to RB)
+# - Albon RB->Williams (never returned to RB)
+
+
+def _was_dropped_by_team(driver_id: str, team_id: str) -> bool:
+    """Check if a driver was previously dropped by this team."""
+    return team_id in DROPPED_BY_TEAM.get(driver_id, [])
+
+
+def _is_ambitious_project(team: Team) -> bool:
+    """
+    Check if a team is an 'ambitious project' that can attract veterans.
+
+    Based on:
+    - Explicit list of known ambitious teams
+    - High development rate (investing in future)
+    - Strong financial health (can sustain long-term project)
+    """
+    if team.id in AMBITIOUS_PROJECT_TEAMS:
+        return True
+    # Dynamic check: high investment teams
+    return team.development_rate >= 78 and team.financial_health >= 80
+
+
+def _driver_has_better_options(
+    driver: Driver,
+    current_team: Team,
+    all_teams: list[Team],
+    open_team_ids: set[str],
+    driver_rating: int,
+) -> bool:
+    """
+    Check if a driver likely has better options than a specific team.
+
+    Used to prevent top drivers from moving to worse cars unless necessary.
+    """
+    # Count teams with better cars that might want this driver
+    better_options = 0
+    for team in all_teams:
+        if team.id not in open_team_ids:
+            continue
+        if team.id == current_team.id:
+            continue
+        if team.car_performance <= current_team.car_performance:
+            continue
+        # Would this team want this driver?
+        team_min_rating = int(_team_prefs(team).get("min_rating", 75))
+        if driver_rating >= team_min_rating - 2:
+            better_options += 1
+
+    return better_options > 0
+
+
+def _is_seatless_situation(
+    driver: Driver,
+    contracts: list[Contract],
+    current_season: int,
+    seat_risk: int,
+    current_team_performance: int,
+) -> bool:
+    """
+    Check if a driver is effectively 'seatless' - contract expiring and unlikely to be renewed.
+
+    This is the Sainz-to-Williams situation: good driver pushed out of top team,
+    no other top seat available, takes best available option.
+
+    Key distinctions:
+    - Drivers at TOP teams with expiring contracts are NOT seatless - they'll get renewed or retire
+    - Drivers being pushed out (high seat risk) at midfield teams ARE seatless
+    - This prevents Hamilton/Alonso from taking massive step-downs
+    """
+    contract = next(
+        (c for c in contracts if c.driver_id == driver.id and c.active),
+        None
+    )
+    if contract is None:
+        return True  # No contract = seatless
+
+    years_left = max(0, (contract.start_season + contract.length_years) - (current_season + 1))
+
+    if years_left > 0:
+        return False  # Has contract, not seatless
+
+    # Expiring contract scenarios:
+
+    # Top team drivers (car >= 88) with expiring contracts are NOT seatless
+    # They'd get renewed or retire, not move to backmarkers
+    if current_team_performance >= CONTENDER_PERFORMANCE:
+        return False
+
+    # Upper midfield drivers are seatless only if seat risk is HIGH
+    if current_team_performance >= UPPER_MIDFIELD_PERFORMANCE:
+        return seat_risk >= 55
+
+    # Midfield/backmarker drivers with expiring contracts and moderate risk are seatless
+    return seat_risk >= 35
 
 
 TransferType = Literal["promotion", "lateral", "demotion", "new_signing", "retirement"]
@@ -151,31 +294,55 @@ def _driver_profile_fit(team: Team, driver: Driver, championship_position: int |
     elif profile == "long_term_project":
         score += (driver.hidden.potential - 82) // 2 + (driver.hidden.loyalty - 68) // 4
 
+    score += identity_team_fit_bonus(driver, team)
     return int(score)
 
 
 def _seat_risk_score(team: Team, driver: Driver, championship_position: int | None = None) -> int:
+    """Calculate how at-risk a driver's seat is. Higher = more likely to be replaced."""
     prefs = _team_prefs(team)
     min_rating = int(prefs["min_rating"])
     rating = get_driver_rating(driver)
     fit = _driver_profile_fit(team, driver, championship_position)
     risk = 0
-    risk += max(0, (min_rating - rating) * 4)
-    risk += max(0, 72 - fit) * 2
-    risk += max(0, 58 - driver.current_form)
+
+    # Base risk from rating gap (increased weight)
+    risk += max(0, (min_rating - rating) * 5)
+
+    # Risk from poor fit (increased weight)
+    risk += max(0, 70 - fit) * 3
+
+    # Risk from poor form (increased impact)
+    risk += max(0, 60 - driver.current_form) * 2
+
+    # Championship position risk (more aggressive)
     if championship_position is not None:
         team_driver_count = 22
-        risk += max(0, championship_position - team_driver_count // 2)
-    if driver.age >= 36:
-        risk += (driver.age - 35) * 5 + driver.hidden.retirement_chance
-    if driver.hidden.loyalty < 62:
-        risk += 4
-    if driver.attributes.aggression - driver.attributes.discipline > 12:
-        risk += 5
+        position_gap = championship_position - team_driver_count // 2
+        risk += max(0, position_gap) * 2
+
+    # Age risk (increased)
+    if driver.age >= 35:
+        risk += (driver.age - 34) * 6 + driver.hidden.retirement_chance
+
+    # Low loyalty means they might leave anyway
+    if driver.hidden.loyalty < 60:
+        risk += 6
+
+    # Hot-headed drivers are a liability
+    if driver.attributes.aggression - driver.attributes.discipline > 10:
+        risk += 8
+
+    # Financial considerations
     if team.hiring_profile == "financially_pressured":
-        risk -= max(0, driver.attributes.sponsor_value - 78) // 2
+        risk -= max(0, driver.attributes.sponsor_value - 75) // 2
     if team.hiring_profile == "big_brand":
-        risk -= max(0, driver.attributes.marketability - 82) // 2
+        risk -= max(0, driver.attributes.marketability - 80) // 2
+
+    # Morale and confidence impact
+    if driver.morale < 40:
+        risk += 8
+
     return max(0, risk)
 
 
@@ -220,8 +387,85 @@ def _is_main_academy_team(team: Team, academy_id: str | None) -> bool:
     return bool(
         academy_id
         and team.academy_id == academy_id
-        and (team.hiring_profile in {"title_contender", "big_brand"} or team.car_performance >= 80)
+        and (team.hiring_profile in {"title_contender", "big_brand"} or team.car_performance >= UPPER_MIDFIELD_PERFORMANCE)
     )
+
+
+def _get_expected_position_range(car_performance: int) -> tuple[int, int]:
+    """Get expected championship position range based on car performance."""
+    for (min_perf, max_perf), (best, worst) in CAR_PERFORMANCE_TO_EXPECTED_POSITION.items():
+        if min_perf <= car_performance <= max_perf:
+            return (best, worst)
+    return (14, 22)  # Default to backmarker range
+
+
+def _calculate_outperformance(
+    driver: Driver,
+    team: Team,
+    championship_position: int | None,
+) -> int:
+    """
+    Calculate how much a driver is outperforming their car.
+
+    Returns a score where:
+    - Positive = outperforming (hot commodity)
+    - Negative = underperforming
+    - Zero = meeting expectations
+    """
+    if championship_position is None:
+        return 0
+
+    expected_best, expected_worst = _get_expected_position_range(team.car_performance)
+    expected_mid = (expected_best + expected_worst) // 2
+
+    # How many positions better than expected midpoint
+    outperformance = expected_mid - championship_position
+
+    # Adjust for form - consistent high form is more impressive
+    if driver.current_form >= 85:
+        outperformance += 2
+    elif driver.current_form >= 75:
+        outperformance += 1
+    elif driver.current_form < 60:
+        outperformance -= 2
+
+    return outperformance
+
+
+def _is_hot_commodity(
+    driver: Driver,
+    team: Team,
+    championship_position: int | None,
+) -> tuple[bool, int, str]:
+    """
+    Check if a driver is a 'hot commodity' - significantly outperforming their car.
+
+    Returns (is_hot, outperformance_score, reason).
+    """
+    outperformance = _calculate_outperformance(driver, team, championship_position)
+
+    # Need to outperform by at least 3 positions to be considered hot
+    if outperformance >= 5:
+        return True, outperformance, "Dramatically outperforming car expectations"
+    elif outperformance >= 3:
+        return True, outperformance, "Consistently outperforming car"
+
+    return False, outperformance, ""
+
+
+def _get_contract_years_remaining(
+    driver: Driver,
+    contracts: list[Contract],
+    current_season: int,
+) -> int:
+    """Get years remaining on driver's current contract."""
+    contract = next(
+        (c for c in contracts if c.driver_id == driver.id and c.active),
+        None
+    )
+    if contract is None:
+        return 0
+    return max(0, (contract.start_season + contract.length_years) - (current_season + 1))
 
 
 def _team_allows_direct_rookie_offer(
@@ -316,23 +560,26 @@ def _academy_pipeline_adjustment(
 
 
 def _promotion_slots_for_season(save: SaveGame, candidate_count: int, opening_count: int) -> int:
-    """Most F1 seasons have only a small number of direct junior promotions."""
+    """Most F1 seasons have a reasonable number of driver moves - increased for drama."""
     if candidate_count <= 0 or opening_count <= 0:
         return 0
 
     rng = random.Random(save.random_seed + save.season * 3001)
     roll = rng.randint(1, 100)
 
-    if roll <= 12:
+    # Increased probability of multiple moves for more drama
+    if roll <= 5:
         slots = 0
-    elif roll <= 58:
+    elif roll <= 28:
         slots = 1
-    elif roll <= 88:
+    elif roll <= 58:
         slots = 2
-    elif roll <= 98:
+    elif roll <= 82:
         slots = 3
-    else:
+    elif roll <= 95:
         slots = 4
+    else:
+        slots = 5  # Big shakeup season
 
     return min(slots, candidate_count, opening_count)
 
@@ -527,6 +774,300 @@ def _generate_affiliate_contender_rumors(
     return rumors
 
 
+def _generate_f1_lateral_move_rumors(
+    save: SaveGame,
+    openings: list[tuple[Team, str | None]],
+) -> list[TransferRumor]:
+    """
+    Generate F1-to-F1 lateral move rumors based on real F1 patterns.
+
+    Real F1 move patterns (2020-2025):
+    - Drivers rarely move between top teams (Hamilton->Ferrari is historic, once per decade)
+    - Drivers dropped by a team NEVER return to that team (Gasly, Albon, Ricciardo)
+    - Veterans take "ambitious project" teams when no top seat available (Sainz->Williams, Alonso->AM)
+    - Midfield shuffles are common (drivers moving between similar-level teams)
+    - Hot commodity = young driver outperforming, NOT veteran beating a weak car
+    """
+    rumors: list[TransferRumor] = []
+    open_team_ids = {team.id for team, _reason in openings}
+    position_map = _series_position_map(save, "F1")
+
+    # Get all F1 teams sorted by car performance
+    f1_teams = sorted(
+        [t for t in save.teams if t.series == "F1"],
+        key=lambda t: t.car_performance,
+        reverse=True
+    )
+    team_by_id = {t.id: t for t in f1_teams}
+
+    for driver in save.drivers:
+        if driver.series != "F1":
+            continue
+
+        # Skip player - they make their own decisions
+        if driver.id == save.player_driver_id:
+            continue
+
+        current_team = team_by_id.get(driver.team_id)
+        if current_team is None:
+            continue
+
+        driver_position = position_map.get(driver.id)
+        driver_rating = get_driver_rating(driver)
+        contract_years = _get_contract_years_remaining(driver, save.contracts, save.season)
+        seat_risk = _seat_risk_score(current_team, driver, driver_position)
+
+        # Check if driver is a hot commodity
+        # BUT: veterans (30+) don't count as "hot" just for beating a weak car
+        is_hot, outperformance, hot_reason = _is_hot_commodity(
+            driver, current_team, driver_position
+        )
+
+        # Reduce hot commodity effect for established veterans
+        # Alonso beating an Alpine is expected, not "hot commodity" material
+        if driver.age >= 30 and driver_rating >= 85:
+            is_hot = False  # Veterans aren't "hot commodities"
+            outperformance = max(0, outperformance - 3)  # Reduce outperformance score
+
+        # Drivers are only available if:
+        # 1. Contract expiring (0 years left)
+        # 2. Young hot commodity with 1 year left (teams can poach - like Piastri)
+        # 3. Extremely hot young driver can force move
+        driver_available = (
+            contract_years == 0
+            or (is_hot and contract_years <= 1 and driver.age <= 27)
+            or (outperformance >= 6 and contract_years <= 1 and driver.age <= 26)
+        )
+
+        if not driver_available:
+            continue
+
+        # Is this driver in a "seatless" situation? (Sainz 2024 scenario)
+        is_seatless = _is_seatless_situation(
+            driver, save.contracts, save.season, seat_risk, current_team.car_performance
+        )
+
+        # Look at potential target teams
+        for target_team in f1_teams:
+            if target_team.id == current_team.id:
+                continue
+            if target_team.id not in open_team_ids:
+                continue
+
+            # ═══════════════════════════════════════════════════════════════
+            # RELATIONSHIP HISTORY CHECK
+            # Drivers NEVER return to teams that dropped them
+            # ═══════════════════════════════════════════════════════════════
+            if _was_dropped_by_team(driver.id, target_team.id):
+                continue  # Gasly won't go back to Red Bull, Albon won't either
+
+            car_improvement = target_team.car_performance - current_team.car_performance
+            is_target_top_team = target_team.car_performance >= CONTENDER_PERFORMANCE
+            is_current_top_team = current_team.car_performance >= CONTENDER_PERFORMANCE
+            is_target_ambitious = _is_ambitious_project(target_team)
+
+            # ═══════════════════════════════════════════════════════════════
+            # ABSOLUTE LIMITS ON CAR DOWNGRADES
+            # No driver takes a massive step down - they'd retire first
+            # ═══════════════════════════════════════════════════════════════
+
+            # Maximum car performance drop is -10 points
+            # Beyond that is unrealistic - they'd retire or stay as reserve
+            if car_improvement < -10:
+                continue
+
+            # Legends (88+ rating) won't move to backmarkers - they'd retire
+            if driver_rating >= 88 and target_team.car_performance < LOWER_MIDFIELD_PERFORMANCE:
+                continue
+
+            # Old veterans (35+) won't take any step down to backmarkers
+            if driver.age >= 35 and target_team.car_performance < LOWER_MIDFIELD_PERFORMANCE:
+                continue
+
+            # Very old veterans (40+) won't move to worse cars at all - they'd retire
+            if driver.age >= 40 and car_improvement < 0:
+                continue
+
+            # Old veterans (35+) won't take significant step downs
+            if driver.age >= 35 and car_improvement < -6:
+                continue
+
+            # ═══════════════════════════════════════════════════════════════
+            # MOVE TO WORSE CAR LOGIC
+            # Only happens in specific situations (Sainz->Williams, Vettel->AM)
+            # ═══════════════════════════════════════════════════════════════
+            if car_improvement < 0:
+                # Moving to a worse car - only in specific situations:
+
+                # 1. Seatless driver + ambitious project (reasonable step down)
+                # But NOT from top team - those drivers aren't seatless
+                if is_seatless and is_target_ambitious and car_improvement >= -10:
+                    pass  # Allow - Sainz to Williams scenario
+
+                # 2. Small step down (-6 or less) with expiring contract
+                elif car_improvement >= -6 and contract_years == 0:
+                    pass  # Allow - minor lateral move
+
+                # 3. Driver truly has no better options and step down is reasonable
+                elif (is_seatless
+                      and car_improvement >= -10
+                      and not _driver_has_better_options(
+                          driver, current_team, f1_teams, open_team_ids, driver_rating
+                      )):
+                    pass  # Allow - taking best available
+
+                else:
+                    continue  # Don't move to worse car
+
+            # ═══════════════════════════════════════════════════════════════
+            # TOP TEAM TO TOP TEAM MOVES
+            # Extremely rare - Hamilton to Ferrari is once per decade
+            # ═══════════════════════════════════════════════════════════════
+            if is_current_top_team and is_target_top_team:
+                # This is a blockbuster move - needs special circumstances
+                # Only WDC-level drivers even considered
+                if driver_rating < 90:
+                    continue
+
+                # Need to be a true elite (top 3 in championship)
+                if driver_position is None or driver_position > 3:
+                    continue
+
+                # Very low base likelihood - these are rare
+                likelihood = 8
+
+                # Only if contract is truly expiring
+                if contract_years > 0:
+                    continue
+
+                # Slight boost for academy connection
+                if _academy_affinity(target_team, driver.academy_id) >= 28:
+                    likelihood += 5
+
+            else:
+                # Normal lateral move logic
+                prefs = _team_prefs(target_team)
+                min_rating = int(prefs["min_rating"])
+
+                # ═══════════════════════════════════════════════════════════════
+                # HARD RATING BLOCK
+                # Drivers significantly below team's minimum are NEVER considered
+                # Ferrari (86) won't sign an Ocon (77) - they just won't
+                # ═══════════════════════════════════════════════════════════════
+                if driver_rating < min_rating - 5:
+                    continue  # Not even close to good enough
+
+                # Top teams (title_contender, big_brand) have stricter standards
+                if target_team.hiring_profile in {"title_contender", "big_brand"}:
+                    if driver_rating < min_rating - 2:
+                        continue  # Top teams don't compromise on quality
+
+                likelihood = 15
+
+                # Hot commodity bonus (only for young drivers)
+                if is_hot and driver.age <= 27:
+                    likelihood += min(20, outperformance * 3)
+
+                # Championship position bonus
+                if driver_position is not None:
+                    if driver_position <= 5:
+                        likelihood += 15
+                    elif driver_position <= 10:
+                        likelihood += 8
+                    elif driver_position <= 15:
+                        likelihood += 3
+
+                # Rating check vs target team minimum
+                if driver_rating >= min_rating + 5:
+                    likelihood += 12
+                elif driver_rating >= min_rating:
+                    likelihood += 6
+                elif driver_rating >= min_rating - 3:
+                    pass
+                else:
+                    likelihood -= 15
+
+                # Car improvement desire
+                if car_improvement >= 10:
+                    likelihood += 12
+                elif car_improvement >= 5:
+                    likelihood += 6
+                elif car_improvement >= 0:
+                    likelihood += 2
+                elif is_target_ambitious:
+                    # Ambitious project can offset worse car
+                    likelihood += 8
+
+                # Academy connection
+                academy_affinity = _academy_affinity(target_team, driver.academy_id)
+                if academy_affinity >= 28:
+                    likelihood += 15
+                elif academy_affinity > 0:
+                    likelihood += 6
+
+                # Veteran + ambitious project bonus (Alonso to AM, Sainz to Williams)
+                if driver.age >= 28 and is_target_ambitious and is_seatless:
+                    likelihood += 20
+
+                # Profile fit
+                fit_score = _driver_profile_fit(target_team, driver, driver_position)
+                likelihood += max(-8, min(12, (fit_score - 75) // 2))
+
+                # Contract status
+                if contract_years == 0:
+                    likelihood += 8
+                elif contract_years == 1 and is_hot:
+                    likelihood += 3
+
+                # Age considerations
+                if driver.age >= 35 and target_team.hiring_profile == "junior_pipeline":
+                    likelihood -= 25
+                elif driver.age <= 25 and target_team.hiring_profile in {"junior_pipeline", "long_term_project"}:
+                    likelihood += 6
+
+            # Tier caps - but more realistic
+            team_tier = get_team_rookie_tier(target_team)
+            tier_caps = {
+                "contender": 25,       # Very hard to get into contenders via lateral
+                "upper_midfield": 55,  # Difficult but possible
+                "lower_midfield": 75,  # Common
+                "backmarker": 85,
+            }
+            cap = tier_caps.get(team_tier, 75)
+
+            # Young hot commodities can exceed caps slightly
+            if is_hot and driver.age <= 26 and outperformance >= 4:
+                cap = min(70, cap + 15)
+
+            likelihood = max(5, min(cap, likelihood))
+
+            if likelihood >= 20:
+                # Generate appropriate reason
+                if is_seatless and is_target_ambitious:
+                    reason = f"{driver.name} eyes {target_team.name}'s ambitious project after losing current seat"
+                elif is_hot and car_improvement >= 5:
+                    reason = f"{driver.name}'s breakout performances attract {target_team.name}"
+                elif contract_years == 0 and car_improvement > 0:
+                    reason = f"{driver.name} available as free agent, {target_team.name} offers competitive seat"
+                elif is_current_top_team and is_target_top_team:
+                    reason = f"Blockbuster: {driver.name} in talks with {target_team.name} for historic move"
+                else:
+                    reason = f"{target_team.name} evaluating {driver.name} for vacant seat"
+
+                rumors.append(
+                    TransferRumor(
+                        driver_id=driver.id,
+                        from_team_id=current_team.id,
+                        to_team_id=target_team.id,
+                        transfer_type="lateral",
+                        likelihood=likelihood,
+                        reason=reason,
+                    )
+                )
+
+    return rumors
+
+
 def generate_transfer_rumors(save: SaveGame) -> list[TransferRumor]:
     """Generate realistic transfer rumors for the silly season."""
     rumors = []
@@ -537,6 +1078,11 @@ def generate_transfer_rumors(save: SaveGame) -> list[TransferRumor]:
 
     # Get F1 seat openings
     openings = evaluate_f1_seat_openings(save)
+
+    # Generate F1-to-F1 lateral move rumors (hot commodities, expiring contracts)
+    rumors.extend(_generate_f1_lateral_move_rumors(save, openings))
+
+    # Generate academy affiliate to parent team promotion rumors
     rumors.extend(_generate_affiliate_contender_rumors(save, openings))
 
     # Generate rumors for each opening
@@ -729,6 +1275,7 @@ def evaluate_player_f1_offers(save: SaveGame) -> list[dict]:
             likelihood -= 14
 
         marketability = _marketability_package(player)
+        likelihood += identity_team_fit_bonus(player, team)
         if _is_top_team(team):
             likelihood += max(-22, min(18, (marketability - 80) // 2))
             if not _has_academy_path_to_team(team, player.academy_id):
@@ -764,6 +1311,61 @@ def evaluate_player_f1_offers(save: SaveGame) -> list[dict]:
     return offers
 
 
+def _determine_contract_length(
+    rng: random.Random,
+    driver: Driver,
+    team: Team,
+    transfer_type: TransferType,
+    championship_position: int | None,
+) -> int:
+    """
+    Determine realistic contract length based on driver/team factors.
+
+    - Top teams offer longer contracts to stars
+    - Rookies often get 1-2 year deals
+    - Hot commodities can demand longer contracts
+    - Older drivers get shorter deals
+    """
+    base_length = 2
+
+    # Top teams offer longer contracts to proven drivers
+    if team.car_performance >= CONTENDER_PERFORMANCE:
+        if championship_position is not None and championship_position <= 5:
+            base_length = 3  # Top performer at top team
+        elif get_driver_rating(driver) >= 88:
+            base_length = 3
+        else:
+            base_length = 2
+
+    # Rookies get shorter initial deals
+    if transfer_type == "promotion":
+        base_length = rng.choice([1, 1, 2])  # Weighted toward 1 year
+
+    # Age adjustments
+    if driver.age >= 35:
+        base_length = min(base_length, 1)  # Max 1 year for older drivers
+    elif driver.age >= 32:
+        base_length = min(base_length, 2)  # Max 2 years
+
+    # Hot commodities can demand longer
+    if championship_position is not None:
+        is_hot, outperformance, _ = _is_hot_commodity(
+            driver, team, championship_position
+        )
+        if is_hot and outperformance >= 4:
+            base_length = min(4, base_length + 1)
+
+    # High-potential young drivers may get longer deals to lock them in
+    if driver.age <= 24 and driver.hidden.potential >= 88:
+        base_length = max(base_length, 2)
+        if team.academy_id == driver.academy_id:
+            base_length = max(base_length, 3)
+
+    # Add some randomness
+    variance = rng.choice([-1, 0, 0, 0, 1])
+    return max(1, min(5, base_length + variance))
+
+
 def simulate_silly_season(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
     """
     Simulate the full silly season driver market.
@@ -777,27 +1379,49 @@ def simulate_silly_season(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
 
     # Generate rumors
     rumors = sorted(generate_transfer_rumors(save), key=lambda item: item.likelihood, reverse=True)
+
+    # Calculate promotion slots (F2 -> F1)
     promotion_slots = _promotion_slots_for_season(
         save,
         candidate_count=len({rumor.driver_id for rumor in rumors if rumor.transfer_type == "promotion"}),
         opening_count=len({rumor.to_team_id for rumor in rumors if rumor.transfer_type == "promotion"}),
     )
+
+    # Calculate lateral move slots (F1 -> F1) - typically 1-3 per season
+    rng = random.Random(save.random_seed + save.season * 1000)
+    lateral_roll = rng.randint(1, 100)
+    if lateral_roll <= 30:
+        lateral_slots = 1
+    elif lateral_roll <= 70:
+        lateral_slots = 2
+    elif lateral_roll <= 90:
+        lateral_slots = 3
+    else:
+        lateral_slots = 4  # Big shakeup season
+
     promotions_completed = 0
+    laterals_completed = 0
     used_f1_teams: set[str] = set()
-    promoted_drivers: set[str] = set()
+    moved_drivers: set[str] = set()  # Track all moved drivers (promotions + laterals)
 
     # Process rumors and make some happen
-    rng = random.Random(save.random_seed + save.season * 1000)
-
     for rumor in rumors:
         if rumor.confirmed:
             continue
         if rumor.to_team_id in used_f1_teams:
             continue
+        if rumor.driver_id in moved_drivers:
+            continue
+
+        # Check slot limits by transfer type
         if rumor.transfer_type == "promotion":
             if promotions_completed >= promotion_slots:
                 continue
-            if rumor.driver_id in promoted_drivers:
+        elif rumor.transfer_type == "lateral":
+            if laterals_completed >= lateral_slots:
+                continue
+            # Also check that source team isn't already losing a driver
+            if rumor.from_team_id and rumor.from_team_id in used_f1_teams:
                 continue
 
         # Roll against likelihood
@@ -834,11 +1458,23 @@ def simulate_silly_season(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
                 )
                 if rumor.transfer_type == "promotion":
                     promotions_completed += 1
-                    promoted_drivers.add(driver.id)
+                elif rumor.transfer_type == "lateral":
+                    laterals_completed += 1
+                    # For lateral moves, mark source team as used too
+                    if rumor.from_team_id:
+                        used_f1_teams.add(rumor.from_team_id)
+                moved_drivers.add(driver.id)
                 used_f1_teams.add(rumor.to_team_id)
             else:
                 updated_driver = _with_path_adjusted_academy(driver, to_team)
                 updated_drivers[driver_idx] = updated_driver
+                moved_drivers.add(driver.id)
+
+            # Determine realistic contract length
+            driver_position = f1_position_map.get(driver.id)
+            contract_length = _determine_contract_length(
+                rng, driver, to_team, rumor.transfer_type, driver_position
+            )
 
             # Create new contract
             new_contract = Contract(
@@ -847,7 +1483,7 @@ def simulate_silly_season(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
                 team_id=rumor.to_team_id,
                 role="f1_race_seat" if to_team.series == "F1" else "f2_race_seat",
                 start_season=save.season + 1,
-                length_years=rng.choice([1, 2, 3]),
+                length_years=contract_length,
                 active=True,
             )
             updated_contracts.append(new_contract)
@@ -866,6 +1502,27 @@ def simulate_silly_season(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
                 body = f"After a strong F2 campaign, {driver.name} will step up to Formula 1, " \
                        f"leaving {from_team_name} for a seat at {to_team.name}.{replacement_note}"
                 importance = 5
+            elif rumor.transfer_type == "lateral" and from_team:
+                # F1-to-F1 lateral move - more dramatic news
+                is_hot, outperformance, _ = _is_hot_commodity(
+                    driver, from_team, driver_position
+                )
+                if is_hot:
+                    headline = f"BLOCKBUSTER: {driver.name} leaves {from_team.name} for {to_team.name}"
+                    body = (
+                        f"In a stunning move, {driver.name} has secured a seat at {to_team.name}, "
+                        f"leaving {from_team.name} after outperforming expectations. "
+                        f"The {contract_length}-year deal represents a major coup for {to_team.name}."
+                    )
+                else:
+                    headline = f"{driver.name} makes switch to {to_team.name}"
+                    body = (
+                        f"{driver.name} will join {to_team.name} next season, departing {from_team.name}. "
+                        f"The move sees the driver sign a {contract_length}-year contract."
+                    )
+                if outgoing_driver:
+                    body += f" {outgoing_driver.name} moves in the opposite direction to {from_team.name}."
+                importance = 5
             else:
                 headline = f"{driver.name} joins {to_team.name}"
                 body = f"{driver.name} has signed with {to_team.name} for the upcoming season."
@@ -882,6 +1539,163 @@ def simulate_silly_season(save: SaveGame) -> tuple[SaveGame, list[NewsItem]]:
                     importance=importance,
                 )
             )
+
+    updated_save = save.model_copy(
+        update={
+            "drivers": updated_drivers,
+            "contracts": updated_contracts,
+        }
+    )
+
+    return updated_save, news
+
+
+def generate_mid_season_drama(save: SaveGame, completed_rounds: int) -> tuple[SaveGame, list[NewsItem]]:
+    """
+    Generate mid-season transfer rumors, drama, and occasional moves.
+
+    Called every few rounds to keep the paddock lively.
+    """
+    if completed_rounds < 3 or completed_rounds % 2 != 0:
+        return save, []
+
+    rng = random.Random(f"{save.random_seed}:{save.season}:midseason:{completed_rounds}")
+    news: list[NewsItem] = []
+    updated_drivers = list(save.drivers)
+    updated_contracts = list(save.contracts)
+
+    # Generate rumors about seat pressure
+    f1_position_map = _series_position_map(save, "F1")
+    f2_position_map = _series_position_map(save, "F2")
+
+    at_risk_drivers: list[tuple[Driver, Team, int]] = []
+
+    for team in save.teams:
+        if team.series not in ("F1", "F2"):
+            continue
+
+        position_map = f1_position_map if team.series == "F1" else f2_position_map
+        team_drivers = [d for d in save.drivers if d.team_id == team.id and d.series == team.series]
+
+        for driver in team_drivers:
+            if driver.id == save.player_driver_id:
+                continue
+
+            risk = _seat_risk_score(team, driver, position_map.get(driver.id))
+            if risk >= 45:
+                at_risk_drivers.append((driver, team, risk))
+
+    # Sort by risk level
+    at_risk_drivers.sort(key=lambda x: x[2], reverse=True)
+
+    # Generate pressure news for top at-risk drivers
+    for driver, team, risk in at_risk_drivers[:3]:
+        if rng.randint(1, 100) <= 35:  # 35% chance of news
+            if risk >= 65:
+                headline = f"Seat in jeopardy: {driver.name} under serious pressure at {team.name}"
+                body = (
+                    f"Sources suggest {team.name} is actively evaluating alternatives. "
+                    f"Recent form has raised questions in the paddock about the driver's future."
+                )
+                importance = 4
+            else:
+                headline = f"Paddock whispers: {driver.name} faces scrutiny"
+                body = f"Performance questions are growing around {driver.name}'s seat at {team.name}."
+                importance = 3
+
+            news.append(
+                NewsItem(
+                    id=f"seat_pressure_{uuid.uuid4().hex[:8]}",
+                    date=save.current_date,
+                    category="rumor",
+                    headline=headline,
+                    body=body,
+                    linked_driver_ids=[driver.id],
+                    importance=importance,
+                )
+            )
+
+    # Rare mid-season driver swap (only in extreme cases)
+    if at_risk_drivers and rng.randint(1, 100) <= 8:  # 8% chance per check
+        driver, team, risk = at_risk_drivers[0]
+        if risk >= 70 and team.series == "F1":
+            # Find a reserve driver or F2 champion candidate
+            reserves = [d for d in save.drivers if d.series == "Reserve"]
+            f2_stars = [
+                d for d in save.drivers
+                if d.series == "F2" and get_driver_rating(d) >= 82
+            ]
+            candidates = reserves + f2_stars
+
+            if candidates:
+                replacement = rng.choice(candidates)
+                # Execute the swap
+                driver_idx = next(i for i, d in enumerate(updated_drivers) if d.id == driver.id)
+                replacement_idx = next(i for i, d in enumerate(updated_drivers) if d.id == replacement.id)
+
+                updated_drivers[driver_idx] = driver.model_copy(update={"series": "Reserve"})
+                updated_drivers[replacement_idx] = replacement.model_copy(
+                    update={"team_id": team.id, "series": "F1"}
+                )
+
+                # Update contracts
+                for i, contract in enumerate(updated_contracts):
+                    if contract.driver_id == driver.id and contract.active:
+                        updated_contracts[i] = contract.model_copy(update={"active": False})
+
+                new_contract = Contract(
+                    id=f"contract_{uuid.uuid4().hex[:8]}",
+                    driver_id=replacement.id,
+                    team_id=team.id,
+                    role="f1_race_seat",
+                    start_season=save.season,
+                    length_years=1,
+                    active=True,
+                )
+                updated_contracts.append(new_contract)
+
+                news.append(
+                    NewsItem(
+                        id=f"midseason_swap_{uuid.uuid4().hex[:8]}",
+                        date=save.current_date,
+                        category="contract",
+                        headline=f"BREAKING: {team.name} drops {driver.name}, calls up {replacement.name}",
+                        body=(
+                            f"In a dramatic mid-season move, {team.name} has parted ways with {driver.name}. "
+                            f"{replacement.name} will take over the seat effective immediately."
+                        ),
+                        linked_driver_ids=[driver.id, replacement.id],
+                        importance=5,
+                    )
+                )
+
+    # Generate hot prospect rumors
+    hot_prospects = [
+        d for d in save.drivers
+        if d.series == "F2"
+        and d.current_form >= 80
+        and get_driver_rating(d) >= 80
+    ]
+
+    for prospect in hot_prospects[:2]:
+        if rng.randint(1, 100) <= 25:  # 25% chance
+            target_teams = [t for t in save.teams if t.series == "F1"]
+            if target_teams:
+                target = rng.choice(target_teams)
+                news.append(
+                    NewsItem(
+                        id=f"prospect_rumor_{uuid.uuid4().hex[:8]}",
+                        date=save.current_date,
+                        category="rumor",
+                        headline=f"{target.name} watching {prospect.name} closely",
+                        body=(
+                            f"The impressive form of {prospect.name} has caught the attention of {target.name}. "
+                            f"Paddock sources suggest preliminary talks may have already begun."
+                        ),
+                        linked_driver_ids=[prospect.id],
+                        importance=3,
+                    )
+                )
 
     updated_save = save.model_copy(
         update={
