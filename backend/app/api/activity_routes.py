@@ -131,13 +131,53 @@ def get_rivalries(save_id: str) -> dict:
 
 @router.get("/development")
 def get_development(save_id: str) -> dict:
+    """
+    Get legacy development status.
+
+    DEPRECATED: Use GET /career/{save_id}/development/skill-tree instead.
+    Direct stat buying has been replaced by the skill tree system.
+    """
     save = _get_save(save_id)
-    return get_development_status(save)
+    status = get_development_status(save)
+
+    # Add deprecation notice and skill tree redirect info
+    status["deprecated"] = True
+    status["deprecationNotice"] = (
+        "Direct stat buying is deprecated. Use the Skill Tree to spend development points."
+    )
+    status["skillTreeEndpoint"] = f"/career/{save_id}/development/skill-tree"
+
+    # Include new system points if available
+    if save.development_profile:
+        status["skillTreePoints"] = save.development_profile.current_points
+        status["skillTreeEnabled"] = True
+    else:
+        status["skillTreeEnabled"] = False
+
+    return status
 
 
 @router.post("/development/{skill_id}", response_model=SaveGame)
 def spend_development(save_id: str, skill_id: str) -> SaveGame:
+    """
+    Spend development points on a skill (legacy system).
+
+    DEPRECATED: Use POST /career/{save_id}/development/unlock-node instead.
+    This endpoint is kept for backwards compatibility with existing saves.
+
+    New saves should use the skill tree system exclusively.
+    """
+    from fastapi.responses import JSONResponse
+
     save = _get_save(save_id)
+
+    # Check if save has migrated to new system
+    if save.development_profile and save.development_profile.unlocked_node_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Direct stat buying is disabled. Use the Skill Tree at /career/{save_id}/development/skill-tree instead.",
+        )
+
     if save.phase not in {"between_races", "offseason"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

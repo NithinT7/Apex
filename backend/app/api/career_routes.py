@@ -8,7 +8,13 @@ from app.data.loaders import (
     get_driver_backgrounds,
     get_f2_teams,
 )
-from app.models.driver import Driver, DriverAttributes, HiddenDriverAttributes
+from app.engine.player_balance import (
+    generate_starting_attributes,
+    get_all_difficulty_options,
+    get_difficulty_config,
+)
+from app.models.development_profile import create_player_starting_profile
+from app.models.driver import Driver, DriverAttributes, DriverIdentity, HiddenDriverAttributes
 from app.models.player_creation import (
     CareerCreationOptions,
     CreateCareerRequest,
@@ -22,48 +28,26 @@ from app.save.save_manager import SaveManager
 router = APIRouter(prefix="/career", tags=["career"])
 manager = SaveManager()
 
-
-BASE_ATTRIBUTES = {
-    "pace": 72,
-    "qualifying": 72,
-    "racecraft": 72,
-    "tire_management": 70,
-    "wet_weather": 68,
-    "consistency": 70,
-    "starts": 70,
-    "awareness": 70,
-    "adaptability": 72,
-    "technical_feedback": 68,
-    "pressure": 70,
-    "confidence": 68,
-    "composure": 70,
-    "aggression": 70,
-    "discipline": 70,
-    "focus": 70,
-    "reputation": 62,
-    "marketability": 58,
-    "sponsor_value": 45,
-}
-
-BASE_HIDDEN = {
-    "potential": 86,
-    "development_rate": 70,
-    "clutch_factor": 68,
-    "crash_proneness": 34,
-    "loyalty": 62,
-    "adaptation_ceiling": 84,
-    "retirement_chance": 0,
+ARCHETYPE_IDENTITY_SEEDS = {
+    "smooth_operator": "tire_whisperer",
+    "one_lap_monster": "qualifying_merchant",
+    "wheel_to_wheel_fighter": "aggressive_menace",
+    "rain_specialist": "rain_god",
+    "technical_developer": "team_leader",
+    "high_risk_prodigy": "aggressive_menace",
 }
 
 
-@router.get("/new/options", response_model=CareerCreationOptions)
-def new_career_options() -> CareerCreationOptions:
-    return CareerCreationOptions(
-        backgrounds=get_driver_backgrounds(),
-        archetypes=get_driver_archetypes(),
-        f2_teams=get_f2_teams(),
-        academies=get_academies(),
-    )
+@router.get("/new/options")
+def new_career_options() -> dict:
+    """Get all options for creating a new career."""
+    return {
+        "backgrounds": [b.model_dump(by_alias=True) for b in get_driver_backgrounds()],
+        "archetypes": [a.model_dump(by_alias=True) for a in get_driver_archetypes()],
+        "f2Teams": [t.model_dump(by_alias=True) for t in get_f2_teams()],
+        "academies": [a.model_dump(by_alias=True) for a in get_academies()],
+        "difficultyPresets": get_all_difficulty_options(),
+    }
 
 
 @router.post("/new", response_model=SaveGame, status_code=status.HTTP_201_CREATED)
@@ -80,7 +64,9 @@ def create_career(payload: CreateCareerRequest) -> SaveGame:
 
     save = manager.create(CreateSaveRequest(name=f"{payload.name.strip()} Career"))
     replaced_driver = _find_replaced_driver(save, payload.team_id)
-    player = _build_player(payload, background, archetype)
+
+    # Build player with difficulty-based attributes
+    player = _build_player(payload, background, archetype, save.random_seed)
 
     drivers = [player if driver.id == replaced_driver.id else driver for driver in save.drivers]
     standings = save.standings.model_copy(
@@ -105,6 +91,14 @@ def create_career(payload: CreateCareerRequest) -> SaveGame:
         for state in save.academy_states
     ]
 
+    # Create development profile based on player's hidden potential and difficulty
+    difficulty_config = get_difficulty_config(payload.difficulty)
+    development_profile = create_player_starting_profile(
+        potential=player.hidden.potential,
+        starting_points=difficulty_config.starting_dev_points,
+        branch_xp_bonus=difficulty_config.starting_branch_xp_bonus,
+    )
+
     updated = save.model_copy(
         update={
             "name": f"{payload.name.strip()} Career",
@@ -112,6 +106,8 @@ def create_career(payload: CreateCareerRequest) -> SaveGame:
             "drivers": drivers,
             "academy_states": academy_states,
             "standings": standings,
+            "development_profile": development_profile,
+            "difficulty": payload.difficulty,
             "news": [
                 *save.news,
                 NewsItem(
@@ -136,21 +132,30 @@ def _build_player(
     payload: CreateCareerRequest,
     background: DriverBackground,
     archetype: DriverArchetype,
+    seed: int,
 ) -> Driver:
-    attributes = BASE_ATTRIBUTES.copy()
-    hidden = BASE_HIDDEN.copy()
+    """Build a player driver with difficulty-adjusted attributes."""
+    # Generate attributes based on difficulty preset
+    attributes, hidden = generate_starting_attributes(
+        difficulty=payload.difficulty,
+        background_effects=background.attribute_effects,
+        archetype_effects=archetype.attribute_effects,
+        seed=seed,
+    )
 
-    for effects in [background.attribute_effects, archetype.attribute_effects]:
-        for key, value in effects.items():
-            snake_key = _camel_to_snake(key)
-            if snake_key in attributes:
-                attributes[snake_key] = _clamp(attributes[snake_key] + value)
-
+    # Apply background and archetype hidden effects
     for effects in [background.hidden_effects, archetype.hidden_effects]:
         for key, value in effects.items():
             snake_key = _camel_to_snake(key)
             if snake_key in hidden:
                 hidden[snake_key] = _clamp(hidden[snake_key] + value)
+
+    seed_trait = ARCHETYPE_IDENTITY_SEEDS.get(archetype.id)
+    identity = DriverIdentity(
+        primary_trait=None,
+        trait_scores={seed_trait: 8} if seed_trait else {},
+        summary="Profile still forming",
+    )
 
     return Driver(
         id="player_driver",
@@ -163,6 +168,7 @@ def _build_player(
         academy_id=payload.academy_id,
         attributes=DriverAttributes(**attributes),
         hidden=HiddenDriverAttributes(**hidden),
+        identity=identity,
         current_form=55,
         fatigue=0,
         morale=55,

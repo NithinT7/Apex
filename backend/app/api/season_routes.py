@@ -10,6 +10,10 @@ from app.engine.season_engine import (
     get_season_summary,
     is_season_complete,
 )
+from app.engine.scouting_engine import (
+    get_all_f1_team_interest,
+    get_scouting_summary,
+)
 from app.engine.silly_season_engine import (
     evaluate_player_f1_offers,
     generate_silly_season_rumors_news,
@@ -208,6 +212,67 @@ def simulate_driver_market(save_id: str) -> SaveGame:
     )
 
     return manager.save(updated_save)
+
+
+@router.get("/scouting")
+def get_scouting(save_id: str) -> dict:
+    """
+    Get F1 team scouting interest in the player.
+
+    Available for F2 drivers to see which teams are watching them.
+    Returns interest levels, reasons for interest, and requirements to improve.
+    """
+    save = _get_save(save_id)
+
+    player = next((d for d in save.drivers if d.id == save.player_driver_id), None)
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player driver not found",
+        )
+
+    if player.series != "F2":
+        return {
+            "available": False,
+            "message": "Scouting data only available for F2 drivers",
+            "playerSeries": player.series,
+        }
+
+    return get_scouting_summary(save)
+
+
+@router.get("/scouting/{team_id}")
+def get_team_scouting_detail(save_id: str, team_id: str) -> dict:
+    """
+    Get detailed scouting interest from a specific F1 team.
+
+    Returns full breakdown of reasons, concerns, and requirements.
+    """
+    save = _get_save(save_id)
+
+    player = next((d for d in save.drivers if d.id == save.player_driver_id), None)
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player driver not found",
+        )
+
+    if player.series != "F2":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Scouting data only available for F2 drivers",
+        )
+
+    interests = get_all_f1_team_interest(save)
+    team_interest = next((i for i in interests if i.team_id == team_id), None)
+
+    if team_interest is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Team {team_id} not found",
+        )
+
+    return team_interest.to_dict()
 
 
 def _get_save(save_id: str) -> SaveGame:

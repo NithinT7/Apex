@@ -2,11 +2,14 @@
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.data.loaders import get_tracks
 from app.engine.academy_engine import (
     apply_race_trust_change,
     check_season_milestone,
 )
-from app.engine.development_engine import award_development_points, points_for_weekend
+from app.engine.car_development_engine import apply_due_upgrades
+from app.engine.development_engine import award_development_points, award_weekend_development, points_for_weekend
+from app.engine.identity_engine import update_driver_identities
 from app.engine.news_engine import dedupe_news_items, generate_weekend_narratives
 from app.engine.rivalry_engine import process_race_rivalries
 from app.engine.season_engine import is_season_complete, transition_to_offseason
@@ -65,8 +68,14 @@ def prepare_weekend(save_id: str, round_id: str) -> dict:
     if calendar_round is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Round not found")
 
+    save, upgrade_reports, upgrade_news = apply_due_upgrades(save, calendar_round.round_number, round_id)
+    if upgrade_news:
+        save = manager.save(save.model_copy(update={"news": dedupe_news_items([*save.news, *upgrade_news])}))
+    else:
+        save = manager.save(save)
+
     # Simulate the full weekend to get practice/qualifying (we'll reuse them)
-    weekend = simulate_weekend(save, round_id)
+    weekend = simulate_weekend(save, round_id, practice_correlation_reports=upgrade_reports)
 
     # Store practice and qualifying for later use
     key = f"{save_id}:{round_id}"
@@ -288,6 +297,9 @@ def finalize_weekend(save_id: str, round_id: str, sprint: RaceResult, feature: R
     # Process rivalries for feature race (main race)
     updated_save, rivalry_news = process_race_rivalries(updated_save, feature)
     news_items.extend(rivalry_news)
+    track = next(item for item in get_tracks() if item.id == calendar_round.track_id)
+    updated_save, identity_news = update_driver_identities(updated_save, weekend, track, calendar_round.end_date)
+    news_items.extend(identity_news)
     news_items.extend(
         generate_weekend_narratives(
             updated_save,
@@ -332,7 +344,18 @@ def finalize_weekend(save_id: str, round_id: str, sprint: RaceResult, feature: R
     if is_season_complete(updated):
         updated, season_news = transition_to_offseason(updated)
 
-    updated = award_development_points(updated, points_for_weekend(updated, round_id))
+    # Award development points AND branch XP based on race performance
+    updated, dev_summary = award_weekend_development(updated, weekend)
+
+    # Store development summary in event flags for frontend retrieval
+    updated = updated.model_copy(
+        update={
+            "event_flags": {
+                **updated.event_flags,
+                "last_weekend_development": dev_summary.to_dict(),
+            }
+        }
+    )
 
     # Clean up prep data
     del _WEEKEND_PREP[key]
