@@ -1,0 +1,931 @@
+[
+  {
+    "id": "race_win_celebration",
+    "trigger": "race_win",
+    "reporter_name": "Sky Sports",
+    "question": "An incredible performance today! How does it feel to take the victory?",
+    "context": "Post-race interview after winning the feature race",
+    "priority": 10,
+    "choices": [
+      {
+        "id": "win_humble",
+        "text": "It's all down to the team. They gave me an amazing car today.",
+        "tone": "humble",
+        "riskLevel": "safe",
+        "effects": {
+          "teamTrust": 5,
+          "reputation": 3,
+          "marketability": 2,
+          "mediaXp": 15,
+          "perceptionTags": ["team_player"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} dedicates victory to team effort",
+        "followUpBody": "In a gracious post-race interview, {driver} credited the entire team for their hard work in securing the win.",
+        "hiddenEffectsHint": "Shows loyalty to your team"
+      },
+      {
+        "id": "win_confident",
+        "text": "I knew I had the pace. When the opportunity came, I took it.",
+        "tone": "confident",
+        "riskLevel": "moderate",
+        "effects": {
+          "marketability": 5,
+          "confidence": 3,
+          "fanSupport": 4,
+          "mediaXp": 20,
+          "perceptionTags": ["confident_racer"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} shows champion mentality after dominant win",
+        "followUpBody": "{driver} spoke with conviction about their performance, demonstrating the confidence of a future champion.",
+        "hiddenEffectsHint": "Builds your media profile"
+      },
+      {
+        "id": "win_emotional",
+        "text": "This means everything to me. All the sacrifices, the hard work - this is what it's all for.",
+        "tone": "honest",
+        "riskLevel": "safe",
+        "effects": {
+          "fanSupport": 6,
+          "marketability": 4,
+          "morale": 5,
+          "mediaXp": 18,
+          "perceptionTags": ["passionate"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} overcome with emotion after breakthrough win",
+        "followUpBody": "An emotional {driver} shared their feelings with the media, connecting with fans worldwide.",
+        "hiddenEffectsHint": "Connects with fans"
+      }
+    ]
+  },
+  {
+    "id": "podium_finish",
+    "trigger": "podium",
+    "reporter_name": "F1 TV",
+    "question": "A fantastic result today! What's the key takeaway from this performance?",
+    "context": "Post-race interview after finishing on the podium",
+    "priority": 8,
+    "choices": [
+      {
+        "id": "podium_progress",
+        "text": "We're making good progress. The team is working incredibly hard and it's paying off.",
+        "tone": "diplomatic",
+        "riskLevel": "safe",
+        "effects": {
+          "teamTrust": 4,
+          "reputation": 2,
+          "marketability": 2,
+          "mediaXp": 12,
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} praises team progress after podium finish",
+        "followUpBody": "{driver} highlighted the team's development work following their impressive podium result.",
+        "hiddenEffectsHint": null
+      },
+      {
+        "id": "podium_hungry",
+        "text": "It's good, but I want more. The win was there - we'll get it next time.",
+        "tone": "confident",
+        "riskLevel": "moderate",
+        "effects": {
+          "marketability": 4,
+          "confidence": 2,
+          "fanSupport": 3,
+          "mediaXp": 14,
+          "perceptionTags": ["hungry_competitor"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} not satisfied with podium - 'We want more'",
+        "followUpBody": "{driver} made clear their ambitions extend beyond podiums, setting sights on race wins.",
+        "hiddenEffectsHint": "Shows ambition"
+      },
+      {
+        "id": "podium_grateful",
+        "text": "I'm just grateful for this opportunity. Not everyone gets to stand on an F1 podium.",
+        "tone": "humble",
+        "riskLevel": "safe",
+        "effects": {
+          "academyTrust": 3,
+          "reputation": 3,
+          "fanSupport": 2,
+          "mediaXp": 10,
+          "perceptionTags": ["humble"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} shows gratitude after career-best result",
+        "followUpBody": "A humble {driver} reflected on their journey to the podium, expressing thanks to all who supported them.",
+        "hiddenEffectsHint": "Academy will appreciate this"
+      }
+    ]
+  },
+  {
+    "id": "strategy_controversy",
+    "trigger": "strategy_controversy",
+    "reporter_name": "Sky Sports",
+    "question": "There's been a lot of discussion about the team's strategy call today. Did it cost you a better result?",
+    "context": "Controversial pit stop timing affected your race",
+    "priority": 9,
+    "choices": [
+      {
+        "id": "strategy_defend_team",
+        "text": "We win and lose together. The team made the best call with the information they had.",
+        "tone": "diplomatic",
+        "riskLevel": "safe",
+        "effects": {
+          "teamTrust": 6,
+          "reputation": 4,
+          "marketability": -1,
+          "mediaXp": 12,
+          "perceptionTags": ["team_player", "professional"],
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} defends team despite questionable strategy",
+        "followUpBody": "{driver} showed remarkable loyalty, refusing to criticize the team's controversial strategy call.",
+        "hiddenEffectsHint": "Shows loyalty but may seem boring"
+      },
+      {
+        "id": "strategy_subtle_criticism",
+        "text": "I think everyone saw what happened out there. We'll discuss it internally.",
+        "tone": "deflecting",
+        "riskLevel": "risky",
+        "effects": {
+          "marketability": 5,
+          "fanSupport": 4,
+          "teamTrust": -4,
+          "rumorIntensity": 3,
+          "mediaXp": 18,
+          "perceptionTags": ["outspoken"],
+          "narrativeTone": "controversial"
+        },
+        "followUpHeadline": "{driver} hints at frustration with team strategy",
+        "followUpBody": "Reading between the lines, {driver}'s comments suggest tension within the team over today's strategy call.",
+        "hiddenEffectsHint": "Media loves drama - team won't"
+      },
+      {
+        "id": "strategy_self_blame",
+        "text": "Honestly, I should have done more on track. Can't blame the strategy if I'd been faster.",
+        "tone": "humble",
+        "riskLevel": "safe",
+        "effects": {
+          "teamTrust": 3,
+          "academyTrust": 4,
+          "confidence": -2,
+          "reputation": 2,
+          "mediaXp": 10,
+          "perceptionTags": ["self_critical"],
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} takes responsibility despite strategy concerns",
+        "followUpBody": "{driver} refused to point fingers, taking responsibility for the result despite questions about team strategy.",
+        "hiddenEffectsHint": "Self-reflection is valued"
+      },
+      {
+        "id": "strategy_no_comment",
+        "text": "I'd rather not discuss it now. We'll review everything as a team.",
+        "tone": "deflecting",
+        "riskLevel": "safe",
+        "effects": {
+          "rumorIntensity": 2,
+          "mediaXp": 5,
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} tight-lipped on strategy controversy",
+        "followUpBody": "{driver} declined to comment on the strategy debate, preferring to keep discussions internal.",
+        "hiddenEffectsHint": "Keeps options open but fuels speculation"
+      }
+    ]
+  },
+  {
+    "id": "major_crash_incident",
+    "trigger": "major_crash",
+    "reporter_name": "Sky Sports",
+    "question": "That was a big impact. Are you okay, and what happened out there?",
+    "context": "Player involved in a significant crash during the race",
+    "priority": 10,
+    "choices": [
+      {
+        "id": "crash_blame_other",
+        "text": "I'm fine, but that was completely unnecessary. They left me no room.",
+        "tone": "aggressive",
+        "riskLevel": "risky",
+        "effects": {
+          "rivalryIntensity": 5,
+          "marketability": 3,
+          "fanSupport": 2,
+          "reputation": -2,
+          "rumorIntensity": 4,
+          "mediaXp": 15,
+          "perceptionTags": ["aggressive_defender"],
+          "narrativeTone": "controversial"
+        },
+        "followUpHeadline": "{driver} points finger after heavy crash",
+        "followUpBody": "A clearly frustrated {driver} blamed their rival for the incident that ended their race.",
+        "hiddenEffectsHint": "May escalate rivalry"
+      },
+      {
+        "id": "crash_racing_incident",
+        "text": "These things happen in racing. I'm okay, that's the main thing.",
+        "tone": "diplomatic",
+        "riskLevel": "safe",
+        "effects": {
+          "reputation": 3,
+          "morale": 2,
+          "mediaXp": 10,
+          "perceptionTags": ["level_headed"],
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} shows maturity after crash - 'These things happen'",
+        "followUpBody": "{driver} took the high road after their race-ending crash, refusing to assign blame.",
+        "hiddenEffectsHint": "Shows maturity"
+      },
+      {
+        "id": "crash_own_fault",
+        "text": "I pushed too hard. My mistake. I'll learn from it.",
+        "tone": "humble",
+        "riskLevel": "moderate",
+        "effects": {
+          "teamTrust": 2,
+          "academyTrust": 3,
+          "confidence": -3,
+          "reputation": 2,
+          "mediaXp": 8,
+          "perceptionTags": ["honest", "self_aware"],
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} admits fault after crash",
+        "followUpBody": "In an honest assessment, {driver} took full responsibility for the incident.",
+        "hiddenEffectsHint": "Honesty is respected but may affect confidence"
+      }
+    ]
+  },
+  {
+    "id": "rival_incident",
+    "trigger": "rival_incident",
+    "reporter_name": "F1 TV",
+    "question": "Your battle with {rival_name} has been intense. What's your view on today's incident?",
+    "context": "On-track incident with your rival driver",
+    "priority": 9,
+    "requiresRival": true,
+    "choices": [
+      {
+        "id": "rival_respect",
+        "text": "We race hard but fair. {rival_name} is a great competitor. We'll battle again.",
+        "tone": "diplomatic",
+        "riskLevel": "safe",
+        "effects": {
+          "reputation": 4,
+          "rivalryIntensity": -2,
+          "marketability": 2,
+          "mediaXp": 12,
+          "perceptionTags": ["respectful_competitor"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} shows respect for rival {rival_name}",
+        "followUpBody": "Despite their fierce rivalry, {driver} praised {rival_name} as a worthy competitor.",
+        "hiddenEffectsHint": "De-escalates tension"
+      },
+      {
+        "id": "rival_escalate",
+        "text": "If they want to race like that, fine. But it goes both ways.",
+        "tone": "aggressive",
+        "riskLevel": "risky",
+        "effects": {
+          "rivalryIntensity": 6,
+          "fanSupport": 5,
+          "marketability": 4,
+          "reputation": -2,
+          "rumorIntensity": 5,
+          "mediaXp": 20,
+          "perceptionTags": ["fierce_competitor"],
+          "narrativeTone": "controversial"
+        },
+        "followUpHeadline": "{driver} warns rival: 'It goes both ways'",
+        "followUpBody": "Tensions continue to rise as {driver} issues a clear warning to their rival {rival_name}.",
+        "hiddenEffectsHint": "Escalates rivalry - fans love it"
+      },
+      {
+        "id": "rival_dismiss",
+        "text": "I'm focused on my own race. What they do is their business.",
+        "tone": "deflecting",
+        "riskLevel": "safe",
+        "effects": {
+          "confidence": 2,
+          "mediaXp": 8,
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} dismisses rivalry talk",
+        "followUpBody": "{driver} refused to engage with questions about their rivalry, preferring to focus on their own performance.",
+        "hiddenEffectsHint": null
+      }
+    ]
+  },
+  {
+    "id": "big_recovery_drive",
+    "trigger": "big_recovery",
+    "reporter_name": "Sky Sports",
+    "question": "What a recovery drive! You came from so far back. How did you pull that off?",
+    "context": "Player gained many positions during the race",
+    "priority": 8,
+    "choices": [
+      {
+        "id": "recovery_car_praise",
+        "text": "The car was incredible today. The engineers gave me something special to work with.",
+        "tone": "humble",
+        "riskLevel": "safe",
+        "effects": {
+          "teamTrust": 5,
+          "reputation": 2,
+          "marketability": 2,
+          "mediaXp": 12,
+          "perceptionTags": ["team_player"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} credits team after stunning recovery",
+        "followUpBody": "{driver} praised the engineering team for providing a car capable of such a remarkable fightback.",
+        "hiddenEffectsHint": null
+      },
+      {
+        "id": "recovery_skill",
+        "text": "I just put my head down and drove. When you're in the zone, anything is possible.",
+        "tone": "confident",
+        "riskLevel": "moderate",
+        "effects": {
+          "marketability": 5,
+          "confidence": 4,
+          "fanSupport": 4,
+          "mediaXp": 18,
+          "perceptionTags": ["clutch_performer"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} shows ice-cool composure in remarkable recovery",
+        "followUpBody": "{driver}'s confidence shone through as they described their incredible drive through the field.",
+        "hiddenEffectsHint": "Builds your reputation as a fighter"
+      },
+      {
+        "id": "recovery_learned",
+        "text": "We shouldn't have been back there in the first place. But I'm glad we recovered well.",
+        "tone": "honest",
+        "riskLevel": "safe",
+        "effects": {
+          "reputation": 3,
+          "academyTrust": 2,
+          "mediaXp": 10,
+          "perceptionTags": ["realistic"],
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} reflects on recovery with honest assessment",
+        "followUpBody": "While pleased with the recovery, {driver} acknowledged the team should never have been in that position.",
+        "hiddenEffectsHint": null
+      }
+    ]
+  },
+  {
+    "id": "penalty_received",
+    "trigger": "penalty_received",
+    "reporter_name": "F1 TV",
+    "question": "The stewards gave you a penalty today. Do you feel it was fair?",
+    "context": "Player received a time penalty during the race",
+    "priority": 7,
+    "choices": [
+      {
+        "id": "penalty_accept",
+        "text": "The stewards made their decision. I'll review the footage and learn from it.",
+        "tone": "diplomatic",
+        "riskLevel": "safe",
+        "effects": {
+          "reputation": 3,
+          "academyTrust": 2,
+          "mediaXp": 8,
+          "perceptionTags": ["professional"],
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} accepts penalty with grace",
+        "followUpBody": "{driver} took the mature approach, accepting the stewards' decision without complaint.",
+        "hiddenEffectsHint": null
+      },
+      {
+        "id": "penalty_disagree",
+        "text": "I don't agree with it, but that's racing. The rules are what they are.",
+        "tone": "honest",
+        "riskLevel": "moderate",
+        "effects": {
+          "marketability": 2,
+          "fanSupport": 3,
+          "reputation": 1,
+          "mediaXp": 12,
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} disagrees with penalty but moves on",
+        "followUpBody": "{driver} made their feelings known about the penalty but refused to dwell on it.",
+        "hiddenEffectsHint": null
+      },
+      {
+        "id": "penalty_angry",
+        "text": "Honestly? It's ridiculous. That's a normal racing move. I don't understand these decisions.",
+        "tone": "aggressive",
+        "riskLevel": "controversial",
+        "effects": {
+          "marketability": 4,
+          "fanSupport": 5,
+          "reputation": -3,
+          "rumorIntensity": 3,
+          "mediaXp": 18,
+          "perceptionTags": ["outspoken"],
+          "narrativeTone": "controversial"
+        },
+        "followUpHeadline": "{driver} blasts stewards over 'ridiculous' penalty",
+        "followUpBody": "In a fiery interview, {driver} hit out at race officials over what they called an unfair penalty.",
+        "hiddenEffectsHint": "Fans may love it but officials won't forget"
+      }
+    ]
+  },
+  {
+    "id": "underperformance",
+    "trigger": "underperformance",
+    "reporter_name": "Sky Sports",
+    "question": "That wasn't the result you were hoping for. What went wrong today?",
+    "context": "Player finished well below expectations",
+    "priority": 6,
+    "choices": [
+      {
+        "id": "underperform_honest",
+        "text": "I just didn't have the pace today. No excuses - I need to do better.",
+        "tone": "honest",
+        "riskLevel": "safe",
+        "effects": {
+          "academyTrust": 3,
+          "reputation": 2,
+          "confidence": -2,
+          "morale": -1,
+          "mediaXp": 10,
+          "perceptionTags": ["honest", "self_critical"],
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} takes responsibility for disappointing result",
+        "followUpBody": "A disappointed {driver} refused to make excuses after a difficult race.",
+        "hiddenEffectsHint": "Honesty is valued but may affect morale"
+      },
+      {
+        "id": "underperform_car",
+        "text": "We struggled with the balance all weekend. We need to understand what happened.",
+        "tone": "diplomatic",
+        "riskLevel": "moderate",
+        "effects": {
+          "teamTrust": -1,
+          "reputation": 1,
+          "mediaXp": 8,
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} points to car issues after tough race",
+        "followUpBody": "{driver} suggested the car's balance contributed to their struggles this weekend.",
+        "hiddenEffectsHint": null
+      },
+      {
+        "id": "underperform_bounce_back",
+        "text": "Bad days happen. What matters is how we respond. We'll come back stronger.",
+        "tone": "confident",
+        "riskLevel": "safe",
+        "effects": {
+          "morale": 2,
+          "confidence": 1,
+          "fanSupport": 2,
+          "mediaXp": 12,
+          "perceptionTags": ["resilient"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} vows to bounce back from setback",
+        "followUpBody": "Despite the disappointment, {driver} remained positive about their chances going forward.",
+        "hiddenEffectsHint": "Shows mental strength"
+      }
+    ]
+  },
+  {
+    "id": "first_f1_race",
+    "trigger": "first_f1_race",
+    "reporter_name": "Sky Sports",
+    "question": "Your first Formula 1 race! How did it feel out there?",
+    "context": "Player's debut F1 race",
+    "priority": 10,
+    "requiresF1": true,
+    "choices": [
+      {
+        "id": "f1_debut_amazing",
+        "text": "It's a dream come true. The speed, the atmosphere - it's everything I imagined and more.",
+        "tone": "honest",
+        "riskLevel": "safe",
+        "effects": {
+          "marketability": 5,
+          "fanSupport": 5,
+          "morale": 5,
+          "mediaXp": 20,
+          "perceptionTags": ["passionate"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} lives the dream in F1 debut",
+        "followUpBody": "An emotional {driver} shared their joy after completing their first Formula 1 race.",
+        "hiddenEffectsHint": "Great for your profile"
+      },
+      {
+        "id": "f1_debut_learning",
+        "text": "So much to learn. The step up is massive, but I'm ready for the challenge.",
+        "tone": "humble",
+        "riskLevel": "safe",
+        "effects": {
+          "academyTrust": 4,
+          "teamTrust": 3,
+          "reputation": 2,
+          "mediaXp": 15,
+          "perceptionTags": ["dedicated"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} focused on learning after F1 debut",
+        "followUpBody": "{driver} showed maturity in their post-race comments, acknowledging the learning curve ahead.",
+        "hiddenEffectsHint": "Team and academy will appreciate this"
+      },
+      {
+        "id": "f1_debut_ready",
+        "text": "I've been preparing for this my whole life. This is just the beginning.",
+        "tone": "confident",
+        "riskLevel": "moderate",
+        "effects": {
+          "marketability": 6,
+          "confidence": 4,
+          "fanSupport": 4,
+          "mediaXp": 18,
+          "perceptionTags": ["confident_rookie"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} announces arrival with confident debut",
+        "followUpBody": "{driver} made clear their intentions, stating their F1 debut was 'just the beginning.'",
+        "hiddenEffectsHint": "Bold statement - back it up!"
+      }
+    ]
+  },
+  {
+    "id": "first_f1_points",
+    "trigger": "first_f1_points",
+    "reporter_name": "F1 TV",
+    "question": "Your first Formula 1 points! What does this mean to you?",
+    "context": "Player scored their first F1 championship points",
+    "priority": 10,
+    "requiresF1": true,
+    "choices": [
+      {
+        "id": "f1_points_milestone",
+        "text": "This is a huge milestone. I'll remember this day forever.",
+        "tone": "honest",
+        "riskLevel": "safe",
+        "effects": {
+          "marketability": 5,
+          "fanSupport": 5,
+          "morale": 6,
+          "confidence": 3,
+          "mediaXp": 20,
+          "perceptionTags": ["milestone_moment"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} celebrates breakthrough F1 points",
+        "followUpBody": "{driver} was visibly emotional after scoring their first Formula 1 championship points.",
+        "hiddenEffectsHint": null
+      },
+      {
+        "id": "f1_points_team",
+        "text": "The team has worked so hard to get us here. These points belong to everyone.",
+        "tone": "humble",
+        "riskLevel": "safe",
+        "effects": {
+          "teamTrust": 5,
+          "reputation": 3,
+          "fanSupport": 3,
+          "mediaXp": 15,
+          "perceptionTags": ["team_player"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} dedicates first F1 points to team",
+        "followUpBody": "{driver} shared the joy of their breakthrough with the entire team.",
+        "hiddenEffectsHint": null
+      },
+      {
+        "id": "f1_points_more",
+        "text": "It's great, but I want more. This is the standard now - points every race.",
+        "tone": "confident",
+        "riskLevel": "moderate",
+        "effects": {
+          "marketability": 5,
+          "confidence": 4,
+          "fanSupport": 3,
+          "mediaXp": 16,
+          "perceptionTags": ["ambitious"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} sets sights higher after first F1 points",
+        "followUpBody": "{driver} is already looking beyond their breakthrough, aiming for consistent points finishes.",
+        "hiddenEffectsHint": "Sets high expectations"
+      }
+    ]
+  },
+  {
+    "id": "pole_position",
+    "trigger": "pole_position",
+    "reporter_name": "Sky Sports",
+    "question": "Pole position! That was an incredible lap. Talk us through it.",
+    "context": "Player took pole position in qualifying",
+    "priority": 9,
+    "choices": [
+      {
+        "id": "pole_perfect_lap",
+        "text": "Everything just came together. The car felt amazing, and I found that extra tenth when it mattered.",
+        "tone": "confident",
+        "riskLevel": "safe",
+        "effects": {
+          "marketability": 4,
+          "confidence": 4,
+          "teamTrust": 3,
+          "mediaXp": 15,
+          "perceptionTags": ["qualifying_specialist"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} delivers perfect lap for pole",
+        "followUpBody": "{driver} described their sensational qualifying lap that secured pole position.",
+        "hiddenEffectsHint": null
+      },
+      {
+        "id": "pole_team_work",
+        "text": "The engineers nailed the setup. I just had to put it all together.",
+        "tone": "humble",
+        "riskLevel": "safe",
+        "effects": {
+          "teamTrust": 5,
+          "reputation": 2,
+          "mediaXp": 12,
+          "perceptionTags": ["team_player"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} praises team after pole position lap",
+        "followUpBody": "{driver} credited the engineering team's hard work for providing a car capable of pole position.",
+        "hiddenEffectsHint": null
+      },
+      {
+        "id": "pole_race_focus",
+        "text": "Pole is great, but Sunday is what counts. We need to convert this into a win.",
+        "tone": "diplomatic",
+        "riskLevel": "safe",
+        "effects": {
+          "reputation": 3,
+          "confidence": 2,
+          "mediaXp": 10,
+          "perceptionTags": ["race_focused"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} keeps focus on race after securing pole",
+        "followUpBody": "{driver} quickly turned attention to Sunday's race after taking a stunning pole position.",
+        "hiddenEffectsHint": null
+      }
+    ]
+  },
+  {
+    "id": "team_orders",
+    "trigger": "team_orders",
+    "reporter_name": "Sky Sports",
+    "question": "The team asked you to hold position. How did you feel about that call?",
+    "context": "Player was asked to follow team orders during the race",
+    "priority": 8,
+    "choices": [
+      {
+        "id": "team_orders_accept",
+        "text": "The team sees the bigger picture. I trust their judgment.",
+        "tone": "diplomatic",
+        "riskLevel": "safe",
+        "effects": {
+          "teamTrust": 6,
+          "reputation": 3,
+          "marketability": -2,
+          "fanSupport": -2,
+          "mediaXp": 10,
+          "perceptionTags": ["team_player", "professional"],
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} accepts team orders without complaint",
+        "followUpBody": "{driver} showed professionalism in following team instructions during the race.",
+        "hiddenEffectsHint": "Team loves loyalty but fans want excitement"
+      },
+      {
+        "id": "team_orders_frustrated",
+        "text": "I'm a racing driver. I want to race. But I understand the championship situation.",
+        "tone": "honest",
+        "riskLevel": "moderate",
+        "effects": {
+          "fanSupport": 5,
+          "marketability": 4,
+          "teamTrust": -2,
+          "rumorIntensity": 3,
+          "mediaXp": 16,
+          "perceptionTags": ["competitive"],
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} shows frustration despite following team orders",
+        "followUpBody": "{driver}'s disappointment was clear despite complying with team instructions.",
+        "hiddenEffectsHint": "Honest but may cause tension"
+      },
+      {
+        "id": "team_orders_defiant",
+        "text": "I race for myself. If I have the pace, I'll go for it.",
+        "tone": "aggressive",
+        "riskLevel": "controversial",
+        "effects": {
+          "fanSupport": 6,
+          "marketability": 5,
+          "teamTrust": -6,
+          "rumorIntensity": 6,
+          "confidence": 3,
+          "mediaXp": 22,
+          "perceptionTags": ["rebellious", "independent"],
+          "narrativeTone": "controversial"
+        },
+        "followUpHeadline": "{driver} defies team: 'I race for myself'",
+        "followUpBody": "Explosive comments from {driver} suggest a power struggle with team management.",
+        "hiddenEffectsHint": "Could damage team relationship significantly"
+      }
+    ]
+  },
+  {
+    "id": "academy_evaluation",
+    "trigger": "academy_evaluation",
+    "reporter_name": "F1 TV",
+    "question": "Your academy bosses are watching closely. How important was today's performance?",
+    "context": "Key race with academy watching for F1 promotion",
+    "priority": 8,
+    "requiresAcademy": true,
+    "choices": [
+      {
+        "id": "academy_focused",
+        "text": "I can only control what I do on track. I hope they liked what they saw.",
+        "tone": "humble",
+        "riskLevel": "safe",
+        "effects": {
+          "academyTrust": 4,
+          "reputation": 2,
+          "confidence": 2,
+          "mediaXp": 12,
+          "perceptionTags": ["professional", "focused"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} impresses in crucial academy evaluation",
+        "followUpBody": "{driver} delivered when it mattered most with academy bosses watching.",
+        "hiddenEffectsHint": "Academy will notice this"
+      },
+      {
+        "id": "academy_prove",
+        "text": "I'm ready for F1. Today was just another example of what I can do.",
+        "tone": "confident",
+        "riskLevel": "moderate",
+        "effects": {
+          "marketability": 4,
+          "confidence": 4,
+          "academyTrust": 2,
+          "mediaXp": 15,
+          "perceptionTags": ["confident"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} declares F1 readiness after impressive drive",
+        "followUpBody": "{driver} made a bold statement about their F1 aspirations after today's performance.",
+        "hiddenEffectsHint": "Bold claim - make sure you can back it up"
+      },
+      {
+        "id": "academy_grateful",
+        "text": "Everything I have is thanks to the academy. I hope I made them proud.",
+        "tone": "humble",
+        "riskLevel": "safe",
+        "effects": {
+          "academyTrust": 6,
+          "reputation": 2,
+          "fanSupport": 2,
+          "mediaXp": 10,
+          "perceptionTags": ["loyal", "grateful"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} thanks academy after standout performance",
+        "followUpBody": "{driver} expressed gratitude to their academy program following a strong showing.",
+        "hiddenEffectsHint": "Academy will love this"
+      }
+    ]
+  },
+  {
+    "id": "teammate_battle",
+    "trigger": "teammate_battle",
+    "reporter_name": "Sky Sports",
+    "question": "Intense battle with your teammate today. How was that from the cockpit?",
+    "context": "Close racing with teammate during the race",
+    "priority": 7,
+    "choices": [
+      {
+        "id": "teammate_respect",
+        "text": "We push each other to be better. It's what makes this team strong.",
+        "tone": "diplomatic",
+        "riskLevel": "safe",
+        "effects": {
+          "teamTrust": 4,
+          "reputation": 3,
+          "mediaXp": 12,
+          "perceptionTags": ["team_player"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} praises healthy teammate competition",
+        "followUpBody": "{driver} welcomed the internal competition, saying it makes both drivers stronger.",
+        "hiddenEffectsHint": null
+      },
+      {
+        "id": "teammate_competitive",
+        "text": "Out there, everyone's a rival. Even your teammate. I gave no quarter.",
+        "tone": "confident",
+        "riskLevel": "moderate",
+        "effects": {
+          "marketability": 4,
+          "confidence": 3,
+          "teamTrust": -2,
+          "fanSupport": 3,
+          "mediaXp": 15,
+          "perceptionTags": ["competitive"],
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} shows no mercy against teammate",
+        "followUpBody": "{driver} made clear that on-track battles know no team allegiance.",
+        "hiddenEffectsHint": "Competitive but may ruffle feathers"
+      },
+      {
+        "id": "teammate_deflect",
+        "text": "Good racing. Let's see where we both end up in the championship.",
+        "tone": "deflecting",
+        "riskLevel": "safe",
+        "effects": {
+          "mediaXp": 8,
+          "narrativeTone": "neutral"
+        },
+        "followUpHeadline": "{driver} downplays teammate battle",
+        "followUpBody": "{driver} kept things simple when asked about the intra-team battle.",
+        "hiddenEffectsHint": null
+      }
+    ]
+  },
+  {
+    "id": "championship_leader",
+    "trigger": "championship_leader",
+    "reporter_name": "Sky Sports",
+    "question": "You're leading the championship! How does it feel to be at the top?",
+    "context": "Player is leading the drivers' championship",
+    "priority": 9,
+    "choices": [
+      {
+        "id": "champ_leader_humble",
+        "text": "Long way to go still. We need to stay focused and take it race by race.",
+        "tone": "humble",
+        "riskLevel": "safe",
+        "effects": {
+          "reputation": 4,
+          "teamTrust": 3,
+          "mediaXp": 12,
+          "perceptionTags": ["focused", "grounded"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} keeps feet on ground despite championship lead",
+        "followUpBody": "{driver} refused to get carried away despite sitting atop the championship standings.",
+        "hiddenEffectsHint": null
+      },
+      {
+        "id": "champ_leader_confident",
+        "text": "We're the team to beat right now. I'm exactly where I want to be.",
+        "tone": "confident",
+        "riskLevel": "moderate",
+        "effects": {
+          "marketability": 5,
+          "confidence": 4,
+          "fanSupport": 4,
+          "mediaXp": 18,
+          "perceptionTags": ["championship_material"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} embraces championship pressure",
+        "followUpBody": "{driver} spoke with the confidence of a champion in the making.",
+        "hiddenEffectsHint": "Shows confidence but adds pressure"
+      },
+      {
+        "id": "champ_leader_team",
+        "text": "This is a team championship too. Everyone deserves credit for where we are.",
+        "tone": "diplomatic",
+        "riskLevel": "safe",
+        "effects": {
+          "teamTrust": 5,
+          "reputation": 2,
+          "mediaXp": 10,
+          "perceptionTags": ["team_player"],
+          "narrativeTone": "positive"
+        },
+        "followUpHeadline": "{driver} shares championship glory with team",
+        "followUpBody": "{driver} was quick to highlight the team's role in their championship charge.",
+        "hiddenEffectsHint": null
+      }
+    ]
+  }
+]
