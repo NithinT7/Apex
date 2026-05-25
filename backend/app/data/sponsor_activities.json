@@ -1,0 +1,465 @@
+{
+  "version": "1.0.0",
+  "activities": [
+    {
+      "id": "local_sponsor_appearance",
+      "name": "Local Sponsor Appearance",
+      "tier": "local",
+      "description": "Attend a small meet-and-greet event for a local sponsor. Good practice for bigger opportunities.",
+      "min_marketability": 0,
+      "min_sponsor_value": 0,
+      "effects": {
+        "media_xp": 8,
+        "marketability": 2,
+        "sponsor_value": 2,
+        "reputation": 1,
+        "team_interest": 1,
+        "academy_trust": 0,
+        "development_funding_bonus": 0,
+        "contract_value_bonus": 0,
+        "pressure_increase": 0
+      },
+      "risk": null,
+      "duration_days": 1,
+      "flavor_text": "Every journey starts somewhere. These small events build the foundation.",
+      "success_headline": "{driver} makes local sponsor appearance",
+      "success_body": "{driver} attended a promotional event for {team}'s local partner, building grassroots support.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": false
+    },
+    {
+      "id": "basic_media_day",
+      "name": "Basic Media Day",
+      "tier": "local",
+      "description": "Standard press duties and team content creation. Essential for any racing driver.",
+      "min_marketability": 0,
+      "min_sponsor_value": 0,
+      "effects": {
+        "media_xp": 10,
+        "marketability": 2,
+        "sponsor_value": 1,
+        "reputation": 1,
+        "team_interest": 1,
+        "academy_trust": 0,
+        "development_funding_bonus": 0,
+        "contract_value_bonus": 0,
+        "pressure_increase": 0
+      },
+      "risk": {
+        "chance": 10,
+        "marketability_penalty": -1,
+        "reputation_penalty": -1,
+        "pressure_increase": 2,
+        "failure_narrative": "An awkward interview moment makes the rounds on social media."
+      },
+      "duration_days": 1,
+      "flavor_text": "The basics. Handle them well and doors will open.",
+      "success_headline": "{driver} handles media duties professionally",
+      "success_body": "{driver} impressed in team content sessions, showing natural media presence.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": false
+    },
+    {
+      "id": "sponsor_activation_event",
+      "name": "Sponsor Activation",
+      "tier": "regional",
+      "description": "Official sponsor activation with meet-and-greets, photo ops, and fan engagement.",
+      "min_marketability": 45,
+      "min_sponsor_value": 40,
+      "effects": {
+        "media_xp": 12,
+        "marketability": 3,
+        "sponsor_value": 4,
+        "reputation": 2,
+        "team_interest": 2,
+        "academy_trust": 1,
+        "development_funding_bonus": 0,
+        "contract_value_bonus": 0,
+        "pressure_increase": 0
+      },
+      "risk": {
+        "chance": 8,
+        "marketability_penalty": -1,
+        "reputation_penalty": -1,
+        "pressure_increase": 3,
+        "failure_narrative": "The sponsor expressed mild disappointment with the turnout."
+      },
+      "duration_days": 1,
+      "flavor_text": "Sponsors invest in you. Show them it's paying off.",
+      "success_headline": "{driver} shines at sponsor activation",
+      "success_body": "{driver} delivered an engaging sponsor activation, strengthening commercial relationships.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": false
+    },
+    {
+      "id": "fan_event",
+      "name": "Fan Event",
+      "tier": "regional",
+      "description": "Public fan event with autograph sessions and Q&A. Build your fanbase.",
+      "min_marketability": 50,
+      "min_sponsor_value": 0,
+      "effects": {
+        "media_xp": 14,
+        "marketability": 4,
+        "sponsor_value": 2,
+        "reputation": 3,
+        "team_interest": 2,
+        "academy_trust": 1,
+        "development_funding_bonus": 0,
+        "contract_value_bonus": 0,
+        "pressure_increase": 0
+      },
+      "risk": null,
+      "duration_days": 1,
+      "flavor_text": "The fans are your foundation. Connect with them.",
+      "success_headline": "{driver} connects with fans at public event",
+      "success_body": "Hundreds of fans turned out to meet {driver} at a public appearance event.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": false
+    },
+    {
+      "id": "brand_photoshoot",
+      "name": "Brand Photoshoot",
+      "tier": "regional",
+      "description": "Professional photoshoot for team and sponsor marketing materials.",
+      "min_marketability": 55,
+      "min_sponsor_value": 45,
+      "effects": {
+        "media_xp": 10,
+        "marketability": 3,
+        "sponsor_value": 3,
+        "reputation": 2,
+        "team_interest": 2,
+        "academy_trust": 0,
+        "development_funding_bonus": 0,
+        "contract_value_bonus": 0.02,
+        "pressure_increase": 0
+      },
+      "risk": null,
+      "duration_days": 1,
+      "flavor_text": "Image matters. Look like a champion, become a champion.",
+      "success_headline": "{driver} features in new brand campaign",
+      "success_body": "{driver} completed a professional photoshoot for upcoming marketing campaigns.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": false
+    },
+    {
+      "id": "major_sponsor_campaign",
+      "name": "Major Sponsor Campaign",
+      "tier": "national",
+      "description": "Featured role in a major sponsor's advertising campaign. High visibility.",
+      "min_marketability": 60,
+      "min_sponsor_value": 55,
+      "effects": {
+        "media_xp": 18,
+        "marketability": 5,
+        "sponsor_value": 6,
+        "reputation": 3,
+        "team_interest": 3,
+        "academy_trust": 2,
+        "development_funding_bonus": 0.05,
+        "contract_value_bonus": 0.05,
+        "pressure_increase": 2
+      },
+      "risk": {
+        "chance": 12,
+        "marketability_penalty": -2,
+        "reputation_penalty": -2,
+        "pressure_increase": 5,
+        "failure_narrative": "The campaign didn't land as expected. Sponsors are questioning the investment."
+      },
+      "duration_days": 2,
+      "flavor_text": "National exposure. The world starts to notice.",
+      "success_headline": "{driver} stars in major advertising campaign",
+      "success_body": "{driver} has been unveiled as the face of a major sponsor campaign, raising their profile significantly.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": true
+    },
+    {
+      "id": "global_media_feature",
+      "name": "Global Media Feature",
+      "tier": "national",
+      "description": "In-depth interview and feature piece for international motorsport media.",
+      "min_marketability": 65,
+      "min_sponsor_value": 0,
+      "effects": {
+        "media_xp": 20,
+        "marketability": 5,
+        "sponsor_value": 4,
+        "reputation": 4,
+        "team_interest": 3,
+        "academy_trust": 2,
+        "development_funding_bonus": 0,
+        "contract_value_bonus": 0.03,
+        "pressure_increase": 1
+      },
+      "risk": {
+        "chance": 10,
+        "marketability_penalty": -2,
+        "reputation_penalty": -2,
+        "pressure_increase": 3,
+        "failure_narrative": "A controversial quote is taken out of context, creating unwanted headlines."
+      },
+      "duration_days": 1,
+      "flavor_text": "The international spotlight. Handle it with grace.",
+      "success_headline": "{driver} featured in major motorsport publication",
+      "success_body": "An in-depth profile of {driver} has been published, highlighting their journey and ambitions.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": true
+    },
+    {
+      "id": "premium_brand_event",
+      "name": "Premium Brand Event",
+      "tier": "national",
+      "description": "Exclusive event representing a premium brand. Network with VIPs and industry leaders.",
+      "min_marketability": 70,
+      "min_sponsor_value": 60,
+      "effects": {
+        "media_xp": 16,
+        "marketability": 4,
+        "sponsor_value": 7,
+        "reputation": 4,
+        "team_interest": 4,
+        "academy_trust": 2,
+        "development_funding_bonus": 0.08,
+        "contract_value_bonus": 0.05,
+        "pressure_increase": 1
+      },
+      "risk": {
+        "chance": 8,
+        "marketability_penalty": -1,
+        "reputation_penalty": -2,
+        "pressure_increase": 4,
+        "failure_narrative": "The event didn't match expectations. Some industry contacts seemed unimpressed."
+      },
+      "duration_days": 1,
+      "flavor_text": "Rub shoulders with the elite. Your network is your net worth.",
+      "success_headline": "{driver} represents premium brand at exclusive event",
+      "success_body": "{driver} attended an exclusive industry event, networking with key figures and raising their profile.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": true
+    },
+    {
+      "id": "documentary_feature",
+      "name": "Documentary Feature",
+      "tier": "global",
+      "description": "Be featured in a motorsport documentary. Share your story with the world.",
+      "min_marketability": 75,
+      "min_sponsor_value": 65,
+      "effects": {
+        "media_xp": 25,
+        "marketability": 7,
+        "sponsor_value": 8,
+        "reputation": 6,
+        "team_interest": 5,
+        "academy_trust": 3,
+        "development_funding_bonus": 0.1,
+        "contract_value_bonus": 0.08,
+        "pressure_increase": 3
+      },
+      "risk": {
+        "chance": 15,
+        "marketability_penalty": -3,
+        "reputation_penalty": -3,
+        "pressure_increase": 6,
+        "failure_narrative": "The documentary portrayed you in an unflattering light. Managing expectations is key."
+      },
+      "duration_days": 2,
+      "flavor_text": "Your story, told to millions. Make it compelling.",
+      "success_headline": "{driver} featured in motorsport documentary",
+      "success_body": "A new documentary featuring {driver}'s journey through racing has captivated audiences worldwide.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": true
+    },
+    {
+      "id": "global_ambassador_campaign",
+      "name": "Global Ambassador Campaign",
+      "tier": "global",
+      "description": "Become a global brand ambassador. Multi-year partnership potential.",
+      "min_marketability": 80,
+      "min_sponsor_value": 70,
+      "effects": {
+        "media_xp": 28,
+        "marketability": 8,
+        "sponsor_value": 10,
+        "reputation": 6,
+        "team_interest": 6,
+        "academy_trust": 4,
+        "development_funding_bonus": 0.12,
+        "contract_value_bonus": 0.1,
+        "pressure_increase": 4
+      },
+      "risk": {
+        "chance": 12,
+        "marketability_penalty": -4,
+        "reputation_penalty": -3,
+        "pressure_increase": 8,
+        "failure_narrative": "The ambassadorship hasn't delivered expected results. There's pressure to perform."
+      },
+      "duration_days": 2,
+      "flavor_text": "Global recognition. You're not just a driver anymore—you're a brand.",
+      "success_headline": "{driver} announced as global brand ambassador",
+      "success_body": "{driver} has signed a major deal as global ambassador for a leading brand, cementing their status as a marketable star.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": true
+    },
+    {
+      "id": "signature_sponsor_partnership",
+      "name": "Signature Sponsor Partnership",
+      "tier": "elite",
+      "description": "A signature sponsorship deal with your name attached. The pinnacle of commercial success.",
+      "min_marketability": 90,
+      "min_sponsor_value": 80,
+      "effects": {
+        "media_xp": 35,
+        "marketability": 10,
+        "sponsor_value": 12,
+        "reputation": 8,
+        "team_interest": 8,
+        "academy_trust": 5,
+        "development_funding_bonus": 0.15,
+        "contract_value_bonus": 0.15,
+        "pressure_increase": 5
+      },
+      "risk": {
+        "chance": 18,
+        "marketability_penalty": -5,
+        "reputation_penalty": -4,
+        "pressure_increase": 10,
+        "failure_narrative": "The signature deal is under scrutiny. There's enormous pressure to justify the investment."
+      },
+      "duration_days": 3,
+      "flavor_text": "A partnership that defines an era. Leave your mark.",
+      "success_headline": "{driver} secures signature sponsor partnership",
+      "success_body": "{driver} has secured a groundbreaking signature sponsorship deal, joining the ranks of motorsport's most marketable athletes.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": true
+    },
+    {
+      "id": "charity_ambassador",
+      "name": "Charity Ambassador",
+      "tier": "regional",
+      "description": "Represent a charitable cause. Good for reputation and personal fulfillment.",
+      "min_marketability": 50,
+      "min_sponsor_value": 0,
+      "effects": {
+        "media_xp": 12,
+        "marketability": 2,
+        "sponsor_value": 1,
+        "reputation": 5,
+        "team_interest": 2,
+        "academy_trust": 3,
+        "development_funding_bonus": 0,
+        "contract_value_bonus": 0,
+        "pressure_increase": 0
+      },
+      "risk": null,
+      "duration_days": 1,
+      "flavor_text": "Use your platform for good. It's more than racing.",
+      "success_headline": "{driver} supports charitable cause",
+      "success_body": "{driver} has taken on a role as charity ambassador, using their platform to raise awareness.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": false
+    },
+    {
+      "id": "team_partner_showcase",
+      "name": "Team Partner Showcase",
+      "tier": "national",
+      "description": "Featured appearance at a team partner's corporate event. Shows your value to the team.",
+      "min_marketability": 60,
+      "min_sponsor_value": 50,
+      "effects": {
+        "media_xp": 14,
+        "marketability": 3,
+        "sponsor_value": 5,
+        "reputation": 3,
+        "team_interest": 5,
+        "academy_trust": 2,
+        "development_funding_bonus": 0.05,
+        "contract_value_bonus": 0.03,
+        "pressure_increase": 1
+      },
+      "risk": {
+        "chance": 8,
+        "marketability_penalty": -1,
+        "reputation_penalty": -1,
+        "pressure_increase": 3,
+        "failure_narrative": "The team partner expected more engagement. Some relationship repair needed."
+      },
+      "duration_days": 1,
+      "flavor_text": "Show your team you bring value beyond the track.",
+      "success_headline": "{driver} impresses at team partner event",
+      "success_body": "{driver} represented {team} at a major partner event, demonstrating strong commercial appeal.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": false
+    },
+    {
+      "id": "academy_sponsor_showcase",
+      "name": "Academy Sponsor Showcase",
+      "tier": "regional",
+      "description": "Represent your academy at a sponsor event. Strengthen your pathway to F1.",
+      "min_marketability": 45,
+      "min_sponsor_value": 40,
+      "effects": {
+        "media_xp": 10,
+        "marketability": 2,
+        "sponsor_value": 3,
+        "reputation": 2,
+        "team_interest": 2,
+        "academy_trust": 5,
+        "development_funding_bonus": 0.03,
+        "contract_value_bonus": 0,
+        "pressure_increase": 0
+      },
+      "risk": null,
+      "duration_days": 1,
+      "flavor_text": "The academy is watching. Every impression counts.",
+      "success_headline": "{driver} represents academy at sponsor event",
+      "success_body": "{driver} showcased their potential at an academy sponsor event, reinforcing their F1 pathway credentials.",
+      "preferred_team_ids": [],
+      "preferred_academy_ids": [],
+      "is_major_event": false
+    }
+  ],
+  "tier_bonuses": {
+    "local": {
+      "base_team_interest_multiplier": 1.0,
+      "base_contract_bonus": 0.0
+    },
+    "regional": {
+      "base_team_interest_multiplier": 1.1,
+      "base_contract_bonus": 0.02
+    },
+    "national": {
+      "base_team_interest_multiplier": 1.25,
+      "base_contract_bonus": 0.05
+    },
+    "global": {
+      "base_team_interest_multiplier": 1.5,
+      "base_contract_bonus": 0.1
+    },
+    "elite": {
+      "base_team_interest_multiplier": 2.0,
+      "base_contract_bonus": 0.2
+    }
+  },
+  "team_interest_weights": {
+    "backmarker": 0.8,
+    "midfield": 0.6,
+    "top_team": 0.3,
+    "elite_team": 0.15
+  }
+}
