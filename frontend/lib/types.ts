@@ -1,75 +1,74 @@
-export type HealthResponse = {
-  status: string;
-  service: string;
-};
+// Core types matching backend models (using camelCase to match API response)
 
-export type DriverSeries = "F1" | "F2" | "Reserve" | "Other";
-export type TeamSeries = "F1" | "F2";
+export type CareerPhase = "preseason" | "race_week" | "between_races" | "offseason";
+export type DifficultyPreset = "prodigy" | "realistic_prospect" | "underdog" | "brutal_realism";
+export type ContractRole = "f1_race_seat" | "f1_reserve" | "f2_race_seat" | "academy_deal" | "loan_seat";
+export type NewsCategory = "race" | "media" | "academy" | "rumor" | "contract" | "incident" | "system" | "rivalry";
+export type TireCompound = "S" | "M" | "H" | "I" | "W";
 
-export type DriverAttributes = {
+export interface DriverAttributes {
   pace: number;
   qualifying: number;
   racecraft: number;
+  consistency: number;
   tireManagement: number;
   wetWeather: number;
-  consistency: number;
   starts: number;
-  awareness: number;
-  adaptability: number;
+  overtaking: number;
+  defending: number;
+  fuelManagement: number;
   technicalFeedback: number;
-  pressure: number;
-  confidence: number;
-  composure: number;
-  aggression: number;
-  discipline: number;
-  focus: number;
-  reputation: number;
-  marketability: number;
-  sponsorValue: number;
-};
+  adaptability: number;
+  mentalFortitude: number;
+}
 
-export type HiddenDriverAttributes = {
+export interface HiddenDriverAttributes {
   potential: number;
-  developmentRate: number;
-  clutchFactor: number;
-  crashProneness: number;
-  loyalty: number;
-  adaptationCeiling: number;
-  retirementChance: number;
-};
+  growthRate: number;
+  pressureHandling: number;
+  luckFactor: number;
+  mediaSavvy: number;
+  teamPolitics: number;
+  workEthic: number;
+}
 
-export type Driver = {
+export interface DriverIdentity {
+  primaryTrait: string | null;
+  traitScores: Record<string, number>;
+  summary: string;
+}
+
+export interface Driver {
   id: string;
   name: string;
   nationality: string;
   age: number;
-  driverNumber?: number | null;
-  series: DriverSeries;
+  driverNumber: number;
+  series: "F1" | "F2";
   teamId: string;
   academyId: string | null;
   attributes: DriverAttributes;
   hidden: HiddenDriverAttributes;
+  identity: DriverIdentity;
   currentForm: number;
   fatigue: number;
   morale: number;
-};
+}
 
-export type Team = {
+export interface Team {
   id: string;
   name: string;
-  series: TeamSeries;
+  series: "F1" | "F2";
   country: string;
   carPerformance: number;
   reliability: number;
   strategy: number;
   developmentRate: number;
   financialHealth: number;
-  academyId: string | null;
-  hiringProfile?: string | null;
-  seatSecurity?: number | null;
-};
+  academyId?: string | null;
+}
 
-export type Academy = {
+export interface Academy {
   id: string;
   name: string;
   style: string;
@@ -81,58 +80,22 @@ export type Academy = {
   testingOpportunities: number;
   contractStrictness: number;
   mediaExpectations: number;
-};
+}
 
-export type Track = {
+export interface CalendarRound {
   id: string;
   name: string;
   country: string;
-  baseLapTime: number;
-  overtakingDifficulty: number;
-  tireDeg: number;
-  safetyCarChance: number;
-  rainChance: number;
-  qualifyingImportance: number;
-  streetCircuit: boolean;
-  drsStrength: number;
-  setupComplexity: number;
-};
-
-export type CalendarRound = {
-  id: string;
-  roundNumber: number;
-  name: string;
   trackId: string;
-  startDate: string;
-  endDate: string;
-  country: string;
+  roundNumber: number;
   series: "F1" | "F2";
   hasSprint: boolean;
+  startDate: string;
+  endDate: string;
   completed: boolean;
-};
+}
 
-export type DataBootstrap = {
-  f1Drivers: Driver[];
-  f2Drivers: Driver[];
-  f1Teams: Team[];
-  f2Teams: Team[];
-  academies: Academy[];
-  tracks: Track[];
-  f1Calendar: CalendarRound[];
-  f2Calendar: CalendarRound[];
-};
-
-export type CareerPhase = "preseason" | "race_week" | "between_races" | "offseason";
-
-export type AcademyState = {
-  academyId: string;
-  trust: number;
-  juniorDepth: string[];
-  seatOpenings: number;
-  politicalStability: number;
-};
-
-export type ChampionshipEntry = {
+export interface ChampionshipEntry {
   driverId: string;
   points: number;
   wins: number;
@@ -143,136 +106,103 @@ export type ChampionshipEntry = {
   penalties: number;
   averageQualifying: number;
   averageFinish: number;
-};
+}
 
-export type ChampionshipState = {
+export interface ChampionshipState {
   driverStandings: ChampionshipEntry[];
   teamStandings: Record<string, number>;
-};
+}
 
-export type NewsItem = {
+export interface NewsItem {
   id: string;
   date: string;
-  category: "race" | "media" | "academy" | "rumor" | "contract" | "incident" | "system" | "rivalry";
+  category: NewsCategory;
   headline: string;
   body: string;
   linkedDriverIds: string[];
   importance: number;
-};
+}
 
-export type Rivalry = {
-  rivalDriverId: string;
-  type: "teammate" | "academy" | "championship" | "media" | "clean" | "dirty";
-  intensity: number;
-  respect: number;
-  incidentHistory: number;
-  mediaAttention: number;
-  championshipStakes: number;
-  academySeatConflict: boolean;
-};
-
-export type Contract = {
+export interface Contract {
   id: string;
   driverId: string;
   teamId: string;
-  role: "f1_race_seat" | "f1_reserve" | "f2_race_seat" | "academy_deal" | "loan_seat";
+  role: ContractRole;
   startSeason: number;
   lengthYears: number;
   active: boolean;
-};
+}
 
-export type WeatherState = {
-  condition: "dry" | "damp" | "wet";
-  airTemp: number;
-  trackTemp: number;
-  rainIntensity: number;
-  trackGrip: number;
-};
+export interface Rivalry {
+  rivalDriverId: string;
+  intensity: number;
+  type: string;
+  originRaceId?: string;
+}
 
-export type PracticeClassification = {
+export interface AcademyState {
+  academyId: string;
+  trust: number;
+  juniorDepth: string[];
+  seatOpenings: number;
+  politicalStability: number;
+}
+
+export interface RaceClassification {
   position: number;
   driverId: string;
-  lapTime: number;
-  setupScore: number;
-  note: string;
-};
+  lapTime?: number;
+  gapToWinner?: number;
+  points: number;
+  status: "finished" | "dnf";
+  dnfReason?: string;
+}
 
-export type QualifyingClassification = {
-  position: number;
-  driverId: string;
-  lapTime: number;
-  gapToPole: number;
-  note: string;
-};
+export interface LapSnapshot {
+  lap: number;
+  runningOrder: Array<{
+    position: number;
+    driverId: string;
+    gap: number;
+    tireCompound: TireCompound;
+    tireAge: number;
+    status: "running" | "dnf" | "pit";
+  }>;
+  commentary: string[];
+  decisionPrompt?: boolean;
+}
 
-export type QualifyingSegment = {
-  segment: "Q1" | "Q2" | "Q3";
-  classification: QualifyingClassification[];
-  eliminated: string[];
-  stories: string[];
-};
-
-export type RunningOrderEntry = {
-  position: number;
-  driverId: string;
-  gapToLeader: number;
-  gapToCarAhead: number;
-  currentLapTime: number | null;
-  previousLapTime: number | null;
-  bestLapTime: number | null;
-  tireCompound: "soft" | "medium" | "hard" | "inter" | "wet";
-  tireAge: number;
-  tireWear: number;
-  componentWear: number;
-  status: "running" | "dnf";
-};
-
-export type DecisionChoice = {
-  id: string;
-  label: string;
-  risk: number;
-  effects: Record<string, number | string>;
-};
-
-export type DecisionPrompt = {
+export interface DecisionPrompt {
   id: string;
   lap: number;
-  type:
-    | "start"
-    | "attack"
-    | "defend"
-    | "tires"
-    | "strategy"
-    | "safety_car"
-    | "weather"
-    | "late_pressure";
   title: string;
   description: string;
-  defaultChoiceId: string;
-  choices: DecisionChoice[];
-};
+  choices: Array<{
+    id: string;
+    label: string;
+    description: string;
+    riskLevel: "low" | "medium" | "high";
+  }>;
+}
 
-export type LapSnapshot = {
-  lap: number;
-  runningOrder: RunningOrderEntry[];
-  commentary: string[];
-  safetyCar: boolean;
-  weather: WeatherState;
-  decisionPrompt: DecisionPrompt | null;
-};
+export interface SessionResult {
+  trackId: string;
+  classification: RaceClassification[];
+  segments?: Array<{
+    segment: string;
+    classification: Array<{
+      position: number;
+      driverId: string;
+      lapTime: number;
+      gapToPole: number;
+      note: string;
+    }>;
+    eliminated: string[];
+    stories: string[];
+  }>;
+}
 
-export type RaceClassification = {
-  position: number;
-  driverId: string;
-  status: "running" | "dnf";
-  totalTime: number;
-  gapToWinner: number;
-  points: number;
-  pitStops: number;
-  fastestLap: number;
-};
-
-export type RaceResult = {
+export interface RaceResult {
   raceId: string;
   sessionType: "sprint" | "feature";
   trackId: string;
@@ -283,29 +213,28 @@ export type RaceResult = {
   decisionPrompts: DecisionPrompt[];
   safetyCarLaps: number[];
   dnfs: string[];
-};
+}
 
-export type WeekendResult = {
-  saveId: string;
+export interface WeekendResult {
   roundId: string;
-  trackId: string;
-  completed: boolean;
-  practice: {
-    trackId: string;
-    weather: WeatherState;
-    classification: PracticeClassification[];
-  };
-  qualifying: {
-    trackId: string;
-    weather: WeatherState;
-    classification: QualifyingClassification[];
-  };
+  headline: string;
+  practice: SessionResult;
+  qualifying: SessionResult;
   sprint: RaceResult;
   feature: RaceResult;
-  headline: string;
-};
+}
 
-export type SaveGame = {
+export interface DevelopmentProfile {
+  availablePoints: number;
+  totalEarned: number;
+  branches: Record<string, {
+    level: number;
+    xp: number;
+    unlockedNodes: string[];
+  }>;
+}
+
+export interface SaveGame {
   saveId: string;
   name: string;
   createdAt: string;
@@ -320,196 +249,124 @@ export type SaveGame = {
   academyStates: AcademyState[];
   calendar: CalendarRound[];
   standings: ChampionshipState;
-  f1Standings?: ChampionshipState | null;
+  f1Standings: ChampionshipState | null;
   news: NewsItem[];
   rivalries: Rivalry[];
   contracts: Contract[];
   weekendResults: WeekendResult[];
   f1WeekendResults: WeekendResult[];
-  development: DevelopmentState;
+  developmentProfile: DevelopmentProfile | null;
+  difficulty: DifficultyPreset;
   randomSeed: number;
-  eventFlags: Record<string, boolean | string | number>;
-};
+}
 
-export type DevelopmentState = {
-  availablePoints: number;
-  totalEarned: number;
-  spentPoints: Record<string, number>;
-};
-
-export type SaveSummary = {
+export interface SaveSummary {
   saveId: string;
   name: string;
   updatedAt: string;
   season: number;
   phase: CareerPhase;
   playerDriverId: string | null;
-};
+}
 
-export type DriverBackground = {
+// Career creation types
+export interface DriverBackground {
   id: string;
   name: string;
   description: string;
   attributeEffects: Record<string, number>;
   hiddenEffects: Record<string, number>;
-};
+}
 
-export type DriverArchetype = {
+export interface DriverArchetype {
   id: string;
   name: string;
   description: string;
   attributeEffects: Record<string, number>;
   hiddenEffects: Record<string, number>;
-};
+}
 
-export type CareerCreationOptions = {
+export interface F2Team {
+  id: string;
+  name: string;
+  series: "F1" | "F2";
+  country: string;
+  carPerformance: number;
+  reliability: number;
+  strategy: number;
+  developmentRate: number;
+  financialHealth: number;
+}
+
+export interface CareerOptions {
   backgrounds: DriverBackground[];
   archetypes: DriverArchetype[];
-  f2Teams: Team[];
+  f2Teams: F2Team[];
   academies: Academy[];
-};
+  difficultyPresets: Array<{
+    id: DifficultyPreset;
+    name: string;
+    description: string;
+  }>;
+}
 
-export type CreateCareerPayload = {
+export interface CreateCareerRequest {
   name: string;
   nationality: string;
   age: number;
-  driverNumber: number;
-  backgroundId: string;
-  archetypeId: string;
-  teamId: string;
-  academyId: string;
-  difficulty: "casual" | "realistic" | "brutal";
-};
+  driver_number: number;
+  background_id: string;
+  archetype_id: string;
+  team_id: string;
+  academy_id: string;
+  difficulty: DifficultyPreset;
+}
 
-// Interactive race decision types
-
-export type DecisionOutcome = {
-  decisionId: string;
-  choiceId: string;
-  choiceLabel: string;
-  paceModifier: number;
-  tireWearModifier: number;
-  incidentRiskModifier: number;
-  narrative: string;
-};
-
-export type PendingDecision = {
-  prompt: DecisionPrompt;
-  raceType: "sprint" | "feature";
-  expiresAtLap: number;
-};
-
-export type DecisionResponse = {
-  decisionId: string;
-  choiceIndex: number;
-};
-
-export type ActiveRaceState = {
+// Weekend preview
+export interface WeekendPreview {
   saveId: string;
   roundId: string;
-  raceType: "sprint" | "feature";
-  currentLap: number;
-  totalLaps: number;
-  lapSnapshots: LapSnapshot[];
-  pendingDecision: PendingDecision | null;
-  decisionHistory: DecisionOutcome[];
-  isComplete: boolean;
-  playerPosition: number | null;
-  playerTireWear: number;
-  safetyCarActive: boolean;
-};
-
-export type WeekendPrep = {
-  roundId: string;
+  roundName: string;
+  roundNumber: number;
+  series: "F1" | "F2";
   hasSprint: boolean;
-  practice: {
-    trackId: string;
-    weather: WeatherState;
-    classification: PracticeClassification[];
+  track: {
+    id: string;
+    name: string;
+    country: string;
+    overtakingDifficulty: number;
+    tireDeg: number;
+    safetyCarChance: number;
+    rainChance: number;
+    qualifyingImportance: number;
+    streetCircuit: boolean;
   };
-  qualifying: {
-    trackId: string;
-    weather: WeatherState;
-    classification: QualifyingClassification[];
-    segments?: QualifyingSegment[] | null;
+  storylines: Array<{
+    id: string;
+    type: string;
+    headline: string;
+    narrative: string;
+    dramaLevel: number;
+    driverIds: string[];
+    teamIds: string[];
+  }>;
+  championshipContext: {
+    playerPosition: number;
+    pointsToLeader: number;
+    pointsToNext: number;
+    pointsFromBehind: number;
+    roundsRemaining: number;
+    titleInReach: boolean;
+    relegationDanger: boolean;
   };
-  sprintGrid: string[];
-  featureGrid: string[];
-};
-
-// Between-race activity types
-
-export type ActivityType =
-  | "rest"
-  | "simulator"
-  | "physical_training"
-  | "media_appearance"
-  | "sponsor_event"
-  | "team_debrief"
-  | "academy_meeting"
-  | "fan_engagement"
-  | "mental_coaching";
-
-export type ActivityEffect = {
-  fatigue: number;
-  morale: number;
-  form: number;
-  academyTrust: number;
-  reputation: number;
-  sponsorValue: number;
-};
-
-export type Activity = {
-  id: string;
-  name: string;
-  type: ActivityType;
-  description: string;
-  durationDays: number;
-  baseEffects: ActivityEffect;
-  riskChance: number;
-  riskEffects: ActivityEffect | null;
-  requirements: Record<string, number>;
-};
-
-export type ActivityOutcome = {
-  activityId: string;
-  activityName: string;
-  success: boolean;
-  narrative: string;
-  effectsApplied: ActivityEffect;
-};
-
-export type AvailableActivities = {
-  daysUntilNextRace: number;
-  activities: Activity[];
-  completedActivities: string[];
-};
-
-export type PlayerStatus = {
-  fatigue: number;
-  morale: number;
-  form: number;
-  reputation: number;
-  sponsorValue: number;
-  academyTrust: number | null;
-  daysUntilRace: number;
-  phase: CareerPhase;
-};
-
-export type SkillNode = {
-  id: string;
-  name: string;
-  branch: string;
-  description: string;
-  attribute: string;
-  cost: number;
-  maxRank: number;
-};
-
-export type DevelopmentStatus = {
-  availablePoints: number;
-  totalEarned: number;
-  spentPoints: Record<string, number>;
-  skills: SkillNode[];
-  attributes: Record<string, number>;
-};
+  playerForm: number | null;
+  playerMorale: number | null;
+  teammateName: string | null;
+  weatherForecast: {
+    condition: "dry" | "wet";
+    airTemp: number;
+    trackTemp: number;
+    rainIntensity: number;
+    trackGrip: number;
+  };
+}
