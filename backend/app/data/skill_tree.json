@@ -1,0 +1,1169 @@
+{
+  "version": "1.0.0",
+  "branches": [
+    {
+      "id": "raw_pace",
+      "name": "Raw Pace",
+      "description": "Pure speed and one-lap performance",
+      "icon": "speedometer",
+      "color": "#FF4444",
+      "nodes": [
+        {
+          "id": "pace_foundation",
+          "branch": "raw_pace",
+          "name": "Pace Foundation",
+          "description": "Master the fundamentals of extracting maximum speed from the car.",
+          "cost": 1,
+          "xp_required": 0,
+          "required_node_ids": [],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"pace": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 0,
+          "position_y": 0
+        },
+        {
+          "id": "braking_precision",
+          "branch": "raw_pace",
+          "name": "Braking Precision",
+          "description": "Push braking points later without locking up.",
+          "cost": 1,
+          "xp_required": 20,
+          "required_node_ids": ["pace_foundation"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"pace": 1, "consistency": 1},
+            "xp_bonuses": {},
+            "special_effects": ["late_braking_bonus"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 0
+        },
+        {
+          "id": "corner_entry_speed",
+          "branch": "raw_pace",
+          "name": "Corner Entry Speed",
+          "description": "Carry more speed into corners without sacrificing exit.",
+          "cost": 2,
+          "xp_required": 40,
+          "required_node_ids": ["braking_precision"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"pace": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": 0
+        },
+        {
+          "id": "qualifying_specialist",
+          "branch": "raw_pace",
+          "name": "Qualifying Specialist",
+          "description": "Extract that extra tenth when it matters most.",
+          "cost": 2,
+          "xp_required": 60,
+          "required_node_ids": ["corner_entry_speed"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"qualifying": 2},
+            "xp_bonuses": {},
+            "special_effects": ["quali_mode_boost"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 3,
+          "position_y": 0
+        },
+        {
+          "id": "one_lap_monster",
+          "branch": "raw_pace",
+          "name": "One-Lap Monster",
+          "description": "When the red lights go out in qualifying, something magical happens.",
+          "cost": 3,
+          "xp_required": 100,
+          "required_node_ids": ["qualifying_specialist"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"qualifying": 2, "pace": 1},
+            "xp_bonuses": {},
+            "special_effects": ["qualifying_outlap_perfect"]
+          },
+          "unlocks_trait_id": "one_lap_monster",
+          "is_major_node": true,
+          "tier": 3,
+          "position_x": 4,
+          "position_y": 0
+        },
+        {
+          "id": "pace_consistency",
+          "branch": "raw_pace",
+          "name": "Pace Consistency",
+          "description": "Maintain qualifying-level pace throughout a stint.",
+          "cost": 2,
+          "xp_required": 80,
+          "required_node_ids": ["corner_entry_speed"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"consistency": 2, "pace": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 3,
+          "position_y": 1
+        },
+        {
+          "id": "maximum_attack",
+          "branch": "raw_pace",
+          "name": "Maximum Attack",
+          "description": "Push beyond normal limits when the situation demands.",
+          "cost": 3,
+          "xp_required": 150,
+          "required_node_ids": ["one_lap_monster", "pace_consistency"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"pace": 2},
+            "xp_bonuses": {},
+            "special_effects": ["overdrive_mode"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": true,
+          "tier": 4,
+          "position_x": 5,
+          "position_y": 0
+        }
+      ]
+    },
+    {
+      "id": "racecraft",
+      "name": "Racecraft",
+      "description": "Wheel-to-wheel combat and race intelligence",
+      "icon": "steering_wheel",
+      "color": "#4488FF",
+      "nodes": [
+        {
+          "id": "racecraft_basics",
+          "branch": "racecraft",
+          "name": "Racecraft Basics",
+          "description": "Understand racing lines and positioning.",
+          "cost": 1,
+          "xp_required": 0,
+          "required_node_ids": [],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"racecraft": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 0,
+          "position_y": 0
+        },
+        {
+          "id": "defensive_positioning",
+          "branch": "racecraft",
+          "name": "Defensive Positioning",
+          "description": "Know when and where to defend your position.",
+          "cost": 1,
+          "xp_required": 20,
+          "required_node_ids": ["racecraft_basics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"racecraft": 1, "awareness": 1},
+            "xp_bonuses": {},
+            "special_effects": ["defensive_line_bonus"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 0
+        },
+        {
+          "id": "overtaking_opportunities",
+          "branch": "racecraft",
+          "name": "Overtaking Opportunities",
+          "description": "Spot gaps that others miss.",
+          "cost": 2,
+          "xp_required": 40,
+          "required_node_ids": ["racecraft_basics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"racecraft": 1},
+            "xp_bonuses": {},
+            "special_effects": ["overtake_window_detection"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 1,
+          "position_y": 1
+        },
+        {
+          "id": "late_braker",
+          "branch": "racecraft",
+          "name": "Late Braker",
+          "description": "Outbrake opponents into corners with confidence.",
+          "cost": 2,
+          "xp_required": 60,
+          "required_node_ids": ["overtaking_opportunities"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"racecraft": 1, "aggression": 1},
+            "xp_bonuses": {},
+            "special_effects": ["late_braking_overtake"]
+          },
+          "unlocks_trait_id": "late_braker",
+          "is_major_node": true,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": 1
+        },
+        {
+          "id": "side_by_side",
+          "branch": "racecraft",
+          "name": "Side by Side",
+          "description": "Race wheel-to-wheel through entire corners.",
+          "cost": 2,
+          "xp_required": 80,
+          "required_node_ids": ["defensive_positioning", "late_braker"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"racecraft": 2, "composure": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 3,
+          "position_x": 3,
+          "position_y": 0
+        },
+        {
+          "id": "wheel_to_wheel_fighter",
+          "branch": "racecraft",
+          "name": "Wheel-to-Wheel Fighter",
+          "description": "Thrive in close combat. Never back down, never make contact.",
+          "cost": 3,
+          "xp_required": 120,
+          "required_node_ids": ["side_by_side"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"racecraft": 2, "awareness": 1},
+            "xp_bonuses": {},
+            "special_effects": ["close_combat_specialist"]
+          },
+          "unlocks_trait_id": "wheel_to_wheel_fighter",
+          "is_major_node": true,
+          "tier": 3,
+          "position_x": 4,
+          "position_y": 0
+        },
+        {
+          "id": "drs_mastery",
+          "branch": "racecraft",
+          "name": "DRS Mastery",
+          "description": "Maximize DRS zones and slipstream effects.",
+          "cost": 1,
+          "xp_required": 40,
+          "required_node_ids": ["racecraft_basics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"racecraft": 1},
+            "xp_bonuses": {},
+            "special_effects": ["drs_timing_bonus"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": -1
+        }
+      ]
+    },
+    {
+      "id": "tire_strategy",
+      "name": "Tire Strategy",
+      "description": "Tire management and strategic thinking",
+      "icon": "tire",
+      "color": "#44BB44",
+      "nodes": [
+        {
+          "id": "tire_basics",
+          "branch": "tire_strategy",
+          "name": "Tire Basics",
+          "description": "Understand how tires behave through a stint.",
+          "cost": 1,
+          "xp_required": 0,
+          "required_node_ids": [],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"tire_management": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 0,
+          "position_y": 0
+        },
+        {
+          "id": "thermal_management",
+          "branch": "tire_strategy",
+          "name": "Thermal Management",
+          "description": "Keep tires in their optimal temperature window.",
+          "cost": 1,
+          "xp_required": 20,
+          "required_node_ids": ["tire_basics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"tire_management": 1},
+            "xp_bonuses": {},
+            "special_effects": ["tire_temp_control"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 0
+        },
+        {
+          "id": "degradation_feeling",
+          "branch": "tire_strategy",
+          "name": "Degradation Feeling",
+          "description": "Sense tire degradation before it shows in lap times.",
+          "cost": 2,
+          "xp_required": 40,
+          "required_node_ids": ["thermal_management"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"tire_management": 1, "adaptability": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": 0
+        },
+        {
+          "id": "stint_extension",
+          "branch": "tire_strategy",
+          "name": "Stint Extension",
+          "description": "Make tires last longer than anyone expects.",
+          "cost": 2,
+          "xp_required": 60,
+          "required_node_ids": ["degradation_feeling"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"tire_management": 2},
+            "xp_bonuses": {},
+            "special_effects": ["extended_stint_bonus"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 3,
+          "position_y": 0
+        },
+        {
+          "id": "tire_whisperer",
+          "branch": "tire_strategy",
+          "name": "Tire Whisperer",
+          "description": "An almost supernatural ability to preserve rubber.",
+          "cost": 3,
+          "xp_required": 100,
+          "required_node_ids": ["stint_extension"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"tire_management": 2},
+            "xp_bonuses": {},
+            "special_effects": ["tire_preservation_master"]
+          },
+          "unlocks_trait_id": "tire_whisperer",
+          "is_major_node": true,
+          "tier": 3,
+          "position_x": 4,
+          "position_y": 0
+        },
+        {
+          "id": "compound_adaptation",
+          "branch": "tire_strategy",
+          "name": "Compound Adaptation",
+          "description": "Quickly adapt to different tire compounds.",
+          "cost": 1,
+          "xp_required": 30,
+          "required_node_ids": ["tire_basics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"adaptability": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 1
+        },
+        {
+          "id": "safety_car_opportunist",
+          "branch": "tire_strategy",
+          "name": "Safety Car Opportunist",
+          "description": "Make the right call when the safety car appears.",
+          "cost": 2,
+          "xp_required": 80,
+          "required_node_ids": ["compound_adaptation", "degradation_feeling"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"tire_management": 1},
+            "xp_bonuses": {},
+            "special_effects": ["sc_pit_timing_bonus"]
+          },
+          "unlocks_trait_id": "safety_car_opportunist",
+          "is_major_node": true,
+          "tier": 3,
+          "position_x": 3,
+          "position_y": 1
+        }
+      ]
+    },
+    {
+      "id": "mentality_pressure",
+      "name": "Mentality & Pressure",
+      "description": "Mental strength and pressure handling",
+      "icon": "brain",
+      "color": "#AA44FF",
+      "nodes": [
+        {
+          "id": "mental_foundation",
+          "branch": "mentality_pressure",
+          "name": "Mental Foundation",
+          "description": "Build the mental resilience needed for elite competition.",
+          "cost": 1,
+          "xp_required": 0,
+          "required_node_ids": [],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"pressure": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 0,
+          "position_y": 0
+        },
+        {
+          "id": "composure_under_fire",
+          "branch": "mentality_pressure",
+          "name": "Composure Under Fire",
+          "description": "Stay calm when others would crack.",
+          "cost": 1,
+          "xp_required": 20,
+          "required_node_ids": ["mental_foundation"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"composure": 1, "pressure": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 0
+        },
+        {
+          "id": "championship_focus",
+          "branch": "mentality_pressure",
+          "name": "Championship Focus",
+          "description": "Keep the bigger picture in mind during crucial moments.",
+          "cost": 2,
+          "xp_required": 40,
+          "required_node_ids": ["composure_under_fire"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"discipline": 1, "focus": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": 0
+        },
+        {
+          "id": "last_lap_heroics",
+          "branch": "mentality_pressure",
+          "name": "Last Lap Heroics",
+          "description": "Find another gear when everything is on the line.",
+          "cost": 2,
+          "xp_required": 60,
+          "required_node_ids": ["championship_focus"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"pressure": 2},
+            "xp_bonuses": {},
+            "special_effects": ["final_lap_boost"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 3,
+          "position_y": 0
+        },
+        {
+          "id": "cold_blooded",
+          "branch": "mentality_pressure",
+          "name": "Cold Blooded",
+          "description": "Ice in the veins. Pressure? What pressure?",
+          "cost": 3,
+          "xp_required": 100,
+          "required_node_ids": ["last_lap_heroics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"pressure": 2, "composure": 2},
+            "xp_bonuses": {},
+            "special_effects": ["pressure_immunity"]
+          },
+          "unlocks_trait_id": "cold_blooded",
+          "is_major_node": true,
+          "tier": 3,
+          "position_x": 4,
+          "position_y": 0
+        },
+        {
+          "id": "confidence_builder",
+          "branch": "mentality_pressure",
+          "name": "Confidence Builder",
+          "description": "Build momentum and belief from good results.",
+          "cost": 1,
+          "xp_required": 25,
+          "required_node_ids": ["mental_foundation"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"confidence": 2},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 1
+        }
+      ]
+    },
+    {
+      "id": "technical_feedback",
+      "name": "Technical Feedback",
+      "description": "Car development and engineering partnership",
+      "icon": "wrench",
+      "color": "#FF8844",
+      "nodes": [
+        {
+          "id": "feedback_basics",
+          "branch": "technical_feedback",
+          "name": "Feedback Basics",
+          "description": "Communicate car behavior to engineers.",
+          "cost": 1,
+          "xp_required": 0,
+          "required_node_ids": [],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"technical_feedback": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 0,
+          "position_y": 0
+        },
+        {
+          "id": "setup_sensitivity",
+          "branch": "technical_feedback",
+          "name": "Setup Sensitivity",
+          "description": "Feel small setup changes and articulate their effects.",
+          "cost": 1,
+          "xp_required": 20,
+          "required_node_ids": ["feedback_basics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"technical_feedback": 1, "adaptability": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 0
+        },
+        {
+          "id": "data_correlation",
+          "branch": "technical_feedback",
+          "name": "Data Correlation",
+          "description": "Understand telemetry and correlate it with feel.",
+          "cost": 2,
+          "xp_required": 40,
+          "required_node_ids": ["setup_sensitivity"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"technical_feedback": 2},
+            "xp_bonuses": {},
+            "special_effects": ["data_driven_setup"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": 0
+        },
+        {
+          "id": "development_direction",
+          "branch": "technical_feedback",
+          "name": "Development Direction",
+          "description": "Guide car development with clear priorities.",
+          "cost": 2,
+          "xp_required": 70,
+          "required_node_ids": ["data_correlation"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"technical_feedback": 1},
+            "xp_bonuses": {},
+            "special_effects": ["development_guidance"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 3,
+          "position_y": 0
+        },
+        {
+          "id": "development_leader",
+          "branch": "technical_feedback",
+          "name": "Development Leader",
+          "description": "Become the reference point for car development.",
+          "cost": 3,
+          "xp_required": 100,
+          "required_node_ids": ["development_direction"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"technical_feedback": 2},
+            "xp_bonuses": {},
+            "special_effects": ["team_development_bonus"]
+          },
+          "unlocks_trait_id": "development_leader",
+          "is_major_node": true,
+          "tier": 3,
+          "position_x": 4,
+          "position_y": 0
+        },
+        {
+          "id": "simulator_correlation",
+          "branch": "technical_feedback",
+          "name": "Simulator Correlation",
+          "description": "Translate simulator work to track performance.",
+          "cost": 1,
+          "xp_required": 30,
+          "required_node_ids": ["feedback_basics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"adaptability": 1},
+            "xp_bonuses": {},
+            "special_effects": ["sim_to_track_bonus"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 1
+        }
+      ]
+    },
+    {
+      "id": "starts_execution",
+      "name": "Starts & Execution",
+      "description": "Race starts and first lap mastery",
+      "icon": "traffic_light",
+      "color": "#FFBB44",
+      "nodes": [
+        {
+          "id": "start_basics",
+          "branch": "starts_execution",
+          "name": "Start Basics",
+          "description": "Consistent, clean race starts.",
+          "cost": 1,
+          "xp_required": 0,
+          "required_node_ids": [],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"starts": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 0,
+          "position_y": 0
+        },
+        {
+          "id": "clutch_mastery",
+          "branch": "starts_execution",
+          "name": "Clutch Mastery",
+          "description": "Perfect bite point control for explosive getaways.",
+          "cost": 1,
+          "xp_required": 20,
+          "required_node_ids": ["start_basics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"starts": 2},
+            "xp_bonuses": {},
+            "special_effects": ["launch_consistency"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 0
+        },
+        {
+          "id": "first_corner_awareness",
+          "branch": "starts_execution",
+          "name": "First Corner Awareness",
+          "description": "Navigate lap 1 chaos with precision.",
+          "cost": 2,
+          "xp_required": 40,
+          "required_node_ids": ["clutch_mastery"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"awareness": 2, "starts": 1},
+            "xp_bonuses": {},
+            "special_effects": ["lap_1_survival"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": 0
+        },
+        {
+          "id": "launch_master",
+          "branch": "starts_execution",
+          "name": "Launch Master",
+          "description": "Rocket starts that gain multiple positions.",
+          "cost": 2,
+          "xp_required": 70,
+          "required_node_ids": ["first_corner_awareness"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"starts": 2},
+            "xp_bonuses": {},
+            "special_effects": ["explosive_launch"]
+          },
+          "unlocks_trait_id": "launch_master",
+          "is_major_node": true,
+          "tier": 3,
+          "position_x": 3,
+          "position_y": 0
+        },
+        {
+          "id": "restart_specialist",
+          "branch": "starts_execution",
+          "name": "Restart Specialist",
+          "description": "Excel at safety car and red flag restarts.",
+          "cost": 2,
+          "xp_required": 50,
+          "required_node_ids": ["clutch_mastery"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"starts": 1, "awareness": 1},
+            "xp_bonuses": {},
+            "special_effects": ["restart_boost"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": 1
+        },
+        {
+          "id": "opening_lap_hunter",
+          "branch": "starts_execution",
+          "name": "Opening Lap Hunter",
+          "description": "Make multiple overtakes on lap 1.",
+          "cost": 2,
+          "xp_required": 80,
+          "required_node_ids": ["first_corner_awareness", "restart_specialist"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"racecraft": 1, "aggression": 1},
+            "xp_bonuses": {},
+            "special_effects": ["lap_1_aggression"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 3,
+          "position_x": 3,
+          "position_y": 1
+        }
+      ]
+    },
+    {
+      "id": "media_marketability",
+      "name": "Media & Marketability",
+      "description": "Public image and commercial value",
+      "icon": "camera",
+      "color": "#FF44BB",
+      "nodes": [
+        {
+          "id": "media_basics",
+          "branch": "media_marketability",
+          "name": "Media Basics",
+          "description": "Handle media obligations professionally.",
+          "cost": 1,
+          "xp_required": 0,
+          "required_node_ids": [],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"marketability": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 0,
+          "position_y": 0
+        },
+        {
+          "id": "interview_skills",
+          "branch": "media_marketability",
+          "name": "Interview Skills",
+          "description": "Give memorable, quotable interviews.",
+          "cost": 1,
+          "xp_required": 20,
+          "required_node_ids": ["media_basics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"marketability": 1, "reputation": 1},
+            "xp_bonuses": {},
+            "special_effects": []
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 0
+        },
+        {
+          "id": "social_presence",
+          "branch": "media_marketability",
+          "name": "Social Presence",
+          "description": "Build a following and engage fans.",
+          "cost": 2,
+          "xp_required": 40,
+          "required_node_ids": ["interview_skills"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"marketability": 2},
+            "xp_bonuses": {},
+            "special_effects": ["social_media_boost"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": 0
+        },
+        {
+          "id": "sponsor_magnet",
+          "branch": "media_marketability",
+          "name": "Sponsor Magnet",
+          "description": "Attract and retain commercial partners.",
+          "cost": 2,
+          "xp_required": 60,
+          "required_node_ids": ["social_presence"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"sponsor_value": 2},
+            "xp_bonuses": {},
+            "special_effects": ["sponsor_attraction"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 3,
+          "position_y": 0
+        },
+        {
+          "id": "box_office_driver",
+          "branch": "media_marketability",
+          "name": "Box Office Driver",
+          "description": "Fans tune in to watch you. You are the show.",
+          "cost": 3,
+          "xp_required": 100,
+          "required_node_ids": ["sponsor_magnet"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"marketability": 2, "sponsor_value": 2},
+            "xp_bonuses": {},
+            "special_effects": ["superstar_status"]
+          },
+          "unlocks_trait_id": "box_office_driver",
+          "is_major_node": true,
+          "tier": 3,
+          "position_x": 4,
+          "position_y": 0
+        },
+        {
+          "id": "paddock_politics",
+          "branch": "media_marketability",
+          "name": "Paddock Politics",
+          "description": "Navigate team politics and paddock relationships.",
+          "cost": 2,
+          "xp_required": 50,
+          "required_node_ids": ["interview_skills"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"reputation": 2},
+            "xp_bonuses": {},
+            "special_effects": ["political_awareness"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": 1
+        }
+      ]
+    },
+    {
+      "id": "academy_path",
+      "name": "Academy Path",
+      "description": "Academy relationships and F1 pathway",
+      "icon": "graduation_cap",
+      "color": "#44DDDD",
+      "nodes": [
+        {
+          "id": "academy_basics",
+          "branch": "academy_path",
+          "name": "Academy Basics",
+          "description": "Understand your academy's expectations.",
+          "cost": 1,
+          "xp_required": 0,
+          "required_node_ids": [],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {},
+            "xp_bonuses": {},
+            "special_effects": ["academy_trust_bonus"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 0,
+          "position_y": 0
+        },
+        {
+          "id": "trust_building",
+          "branch": "academy_path",
+          "name": "Trust Building",
+          "description": "Build stronger relationships with academy leadership.",
+          "cost": 1,
+          "xp_required": 20,
+          "required_node_ids": ["academy_basics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {},
+            "xp_bonuses": {},
+            "special_effects": ["trust_gain_bonus"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 0
+        },
+        {
+          "id": "f1_exposure",
+          "branch": "academy_path",
+          "name": "F1 Exposure",
+          "description": "Gain visibility with F1 team principals.",
+          "cost": 2,
+          "xp_required": 40,
+          "required_node_ids": ["trust_building"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"reputation": 1},
+            "xp_bonuses": {},
+            "special_effects": ["f1_visibility"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": 0
+        },
+        {
+          "id": "test_driver_ready",
+          "branch": "academy_path",
+          "name": "Test Driver Ready",
+          "description": "Prove you're ready for F1 test opportunities.",
+          "cost": 2,
+          "xp_required": 60,
+          "required_node_ids": ["f1_exposure"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {},
+            "xp_bonuses": {},
+            "special_effects": ["test_driver_eligibility"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 2,
+          "position_x": 3,
+          "position_y": 0
+        },
+        {
+          "id": "f1_ready",
+          "branch": "academy_path",
+          "name": "F1 Ready",
+          "description": "You've done everything right. F1 awaits.",
+          "cost": 3,
+          "xp_required": 100,
+          "required_node_ids": ["test_driver_ready"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {},
+            "xp_bonuses": {},
+            "special_effects": ["f1_promotion_boost"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": true,
+          "tier": 3,
+          "position_x": 4,
+          "position_y": 0
+        },
+        {
+          "id": "junior_competition",
+          "branch": "academy_path",
+          "name": "Junior Competition",
+          "description": "Stand out among other academy juniors.",
+          "cost": 1,
+          "xp_required": 30,
+          "required_node_ids": ["academy_basics"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {},
+            "xp_bonuses": {},
+            "special_effects": ["junior_standing_bonus"]
+          },
+          "unlocks_trait_id": null,
+          "is_major_node": false,
+          "tier": 1,
+          "position_x": 1,
+          "position_y": 1
+        },
+        {
+          "id": "rain_instinct",
+          "branch": "academy_path",
+          "name": "Rain Instinct",
+          "description": "Show your talent when conditions turn treacherous.",
+          "cost": 2,
+          "xp_required": 50,
+          "required_node_ids": ["junior_competition"],
+          "required_traits": [],
+          "required_achievements": [],
+          "effects": {
+            "attribute_bonuses": {"wet_weather": 2},
+            "xp_bonuses": {},
+            "special_effects": ["rain_performance_boost"]
+          },
+          "unlocks_trait_id": "rain_instinct",
+          "is_major_node": true,
+          "tier": 2,
+          "position_x": 2,
+          "position_y": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,315 @@
+{
+  "version": "1.0.0",
+  "traits": [
+    {
+      "id": "one_lap_monster",
+      "name": "One-Lap Monster",
+      "category": "driving",
+      "description": "An almost supernatural ability to extract everything from a qualifying lap. When the timer starts, something clicks.",
+      "positive_effects": {
+        "attribute_modifiers": {"qualifying": 3},
+        "situational_bonuses": {"qualifying_session": 5},
+        "special_flags": ["qualifying_outlap_perfect", "q3_boost"],
+        "perception_modifiers": {"paddock_hype": 5}
+      },
+      "drawbacks": {
+        "attribute_modifiers": {},
+        "situational_bonuses": {},
+        "special_flags": [],
+        "perception_modifiers": {}
+      },
+      "unlock_requirements": {
+        "branch_xp": {"raw_pace": 100},
+        "required_nodes": ["one_lap_monster"],
+        "required_traits": [],
+        "achievements": [],
+        "min_attributes": {"qualifying": 75},
+        "conditions": []
+      },
+      "rarity": "rare",
+      "flavor_text": "Saturday is my day.",
+      "icon": "stopwatch",
+      "incompatible_traits": [],
+      "is_permanent": true
+    },
+    {
+      "id": "tire_whisperer",
+      "name": "Tire Whisperer",
+      "category": "strategic",
+      "description": "An intuitive feel for tire behavior that borders on the mystical. Extends stints beyond what engineers think possible.",
+      "positive_effects": {
+        "attribute_modifiers": {"tire_management": 3},
+        "situational_bonuses": {"stint_extension": 8, "degradation_reduction": 15},
+        "special_flags": ["tire_preservation_master"],
+        "perception_modifiers": {"strategist_respect": 5}
+      },
+      "drawbacks": {
+        "attribute_modifiers": {},
+        "situational_bonuses": {},
+        "special_flags": [],
+        "perception_modifiers": {}
+      },
+      "unlock_requirements": {
+        "branch_xp": {"tire_strategy": 100},
+        "required_nodes": ["tire_whisperer"],
+        "required_traits": [],
+        "achievements": [],
+        "min_attributes": {"tire_management": 75},
+        "conditions": []
+      },
+      "rarity": "rare",
+      "flavor_text": "I can feel every grain of rubber.",
+      "icon": "tire",
+      "incompatible_traits": [],
+      "is_permanent": true
+    },
+    {
+      "id": "late_braker",
+      "name": "Late Braker",
+      "category": "driving",
+      "description": "Pushes braking points deeper than anyone else dares. High risk, high reward overtaking style.",
+      "positive_effects": {
+        "attribute_modifiers": {"racecraft": 2},
+        "situational_bonuses": {"overtake_success": 10, "late_braking_bonus": 15},
+        "special_flags": ["late_braking_overtake"],
+        "perception_modifiers": {"entertainment_value": 5}
+      },
+      "drawbacks": {
+        "attribute_modifiers": {},
+        "situational_bonuses": {"lockup_chance": 5},
+        "special_flags": [],
+        "perception_modifiers": {}
+      },
+      "unlock_requirements": {
+        "branch_xp": {"racecraft": 60},
+        "required_nodes": ["late_braker"],
+        "required_traits": [],
+        "achievements": [],
+        "min_attributes": {"racecraft": 70},
+        "conditions": []
+      },
+      "rarity": "uncommon",
+      "flavor_text": "If you're not on the edge, you're taking up too much space.",
+      "icon": "brake",
+      "incompatible_traits": [],
+      "is_permanent": true
+    },
+    {
+      "id": "wheel_to_wheel_fighter",
+      "name": "Wheel-to-Wheel Fighter",
+      "category": "driving",
+      "description": "Thrives in close combat. Never backs down, but always keeps it clean. Rivals respect and fear this driver.",
+      "positive_effects": {
+        "attribute_modifiers": {"racecraft": 3, "awareness": 2},
+        "situational_bonuses": {"side_by_side_advantage": 15, "no_contact_bonus": 10},
+        "special_flags": ["close_combat_specialist"],
+        "perception_modifiers": {"rival_respect": 5, "entertainment_value": 8}
+      },
+      "drawbacks": {
+        "attribute_modifiers": {},
+        "situational_bonuses": {},
+        "special_flags": [],
+        "perception_modifiers": {}
+      },
+      "unlock_requirements": {
+        "branch_xp": {"racecraft": 120},
+        "required_nodes": ["wheel_to_wheel_fighter"],
+        "required_traits": [],
+        "achievements": [],
+        "min_attributes": {"racecraft": 78, "awareness": 72},
+        "conditions": []
+      },
+      "rarity": "rare",
+      "flavor_text": "Give me an inch, I'll take a mile.",
+      "icon": "racing_flags",
+      "incompatible_traits": [],
+      "is_permanent": true
+    },
+    {
+      "id": "cold_blooded",
+      "name": "Cold Blooded",
+      "category": "mental",
+      "description": "Ice in the veins. Championship deciders, last-lap battles, nothing fazes this driver. Pressure is just another word.",
+      "positive_effects": {
+        "attribute_modifiers": {"pressure": 4, "composure": 3},
+        "situational_bonuses": {"championship_battle": 10, "final_lap_boost": 8},
+        "special_flags": ["pressure_immunity"],
+        "perception_modifiers": {"media_narrative": 5}
+      },
+      "drawbacks": {
+        "attribute_modifiers": {},
+        "situational_bonuses": {},
+        "special_flags": [],
+        "perception_modifiers": {}
+      },
+      "unlock_requirements": {
+        "branch_xp": {"mentality_pressure": 100},
+        "required_nodes": ["cold_blooded"],
+        "required_traits": [],
+        "achievements": [],
+        "min_attributes": {"pressure": 78, "composure": 75},
+        "conditions": []
+      },
+      "rarity": "rare",
+      "flavor_text": "Pressure? I don't feel it.",
+      "icon": "ice",
+      "incompatible_traits": [],
+      "is_permanent": true
+    },
+    {
+      "id": "development_leader",
+      "name": "Development Leader",
+      "category": "technical",
+      "description": "The team's development reference point. Engineers trust this driver's feedback implicitly. The car evolves around them.",
+      "positive_effects": {
+        "attribute_modifiers": {"technical_feedback": 3},
+        "situational_bonuses": {"team_development_bonus": 10, "setup_confidence": 15},
+        "special_flags": ["team_development_bonus"],
+        "perception_modifiers": {"team_trust": 10}
+      },
+      "drawbacks": {
+        "attribute_modifiers": {},
+        "situational_bonuses": {},
+        "special_flags": [],
+        "perception_modifiers": {}
+      },
+      "unlock_requirements": {
+        "branch_xp": {"technical_feedback": 100},
+        "required_nodes": ["development_leader"],
+        "required_traits": [],
+        "achievements": [],
+        "min_attributes": {"technical_feedback": 78},
+        "conditions": []
+      },
+      "rarity": "rare",
+      "flavor_text": "Build the car around me, and I'll bring you results.",
+      "icon": "wrench",
+      "incompatible_traits": [],
+      "is_permanent": true
+    },
+    {
+      "id": "launch_master",
+      "name": "Launch Master",
+      "category": "driving",
+      "description": "Rocket starts that regularly gain multiple positions. The lights go out, and this driver is already gone.",
+      "positive_effects": {
+        "attribute_modifiers": {"starts": 4},
+        "situational_bonuses": {"race_start_bonus": 20, "restart_advantage": 15},
+        "special_flags": ["explosive_launch"],
+        "perception_modifiers": {}
+      },
+      "drawbacks": {
+        "attribute_modifiers": {},
+        "situational_bonuses": {},
+        "special_flags": [],
+        "perception_modifiers": {}
+      },
+      "unlock_requirements": {
+        "branch_xp": {"starts_execution": 70},
+        "required_nodes": ["launch_master"],
+        "required_traits": [],
+        "achievements": [],
+        "min_attributes": {"starts": 75},
+        "conditions": []
+      },
+      "rarity": "uncommon",
+      "flavor_text": "First corner is mine. Every time.",
+      "icon": "rocket",
+      "incompatible_traits": [],
+      "is_permanent": true
+    },
+    {
+      "id": "box_office_driver",
+      "name": "Box Office Driver",
+      "category": "media",
+      "description": "Fans tune in to watch this driver. The camera always finds them. They are the show, win or lose.",
+      "positive_effects": {
+        "attribute_modifiers": {"marketability": 4, "sponsor_value": 3},
+        "situational_bonuses": {"media_attention": 20, "fan_engagement": 15},
+        "special_flags": ["superstar_status"],
+        "perception_modifiers": {"paddock_hype": 10, "media_narrative": 8}
+      },
+      "drawbacks": {
+        "attribute_modifiers": {},
+        "situational_bonuses": {"media_pressure": 5},
+        "special_flags": [],
+        "perception_modifiers": {}
+      },
+      "unlock_requirements": {
+        "branch_xp": {"media_marketability": 100},
+        "required_nodes": ["box_office_driver"],
+        "required_traits": [],
+        "achievements": [],
+        "min_attributes": {"marketability": 80, "sponsor_value": 75},
+        "conditions": []
+      },
+      "rarity": "rare",
+      "flavor_text": "I don't just race. I put on a show.",
+      "icon": "star",
+      "incompatible_traits": [],
+      "is_permanent": true
+    },
+    {
+      "id": "rain_instinct",
+      "name": "Rain Instinct",
+      "category": "situational",
+      "description": "When the rain falls, this driver comes alive. While others struggle, they find grip where none exists.",
+      "positive_effects": {
+        "attribute_modifiers": {"wet_weather": 4},
+        "situational_bonuses": {"rain_performance": 20, "changing_conditions": 15},
+        "special_flags": ["rain_performance_boost"],
+        "perception_modifiers": {"paddock_hype": 5}
+      },
+      "drawbacks": {
+        "attribute_modifiers": {},
+        "situational_bonuses": {},
+        "special_flags": [],
+        "perception_modifiers": {}
+      },
+      "unlock_requirements": {
+        "branch_xp": {"academy_path": 50},
+        "required_nodes": ["rain_instinct"],
+        "required_traits": [],
+        "achievements": [],
+        "min_attributes": {"wet_weather": 72},
+        "conditions": []
+      },
+      "rarity": "uncommon",
+      "flavor_text": "Others see danger. I see opportunity.",
+      "icon": "rain",
+      "incompatible_traits": [],
+      "is_permanent": true
+    },
+    {
+      "id": "safety_car_opportunist",
+      "name": "Safety Car Opportunist",
+      "category": "strategic",
+      "description": "Reads safety car situations perfectly. Always makes the right call, turning chaos into advantage.",
+      "positive_effects": {
+        "attribute_modifiers": {"awareness": 2},
+        "situational_bonuses": {"safety_car_advantage": 15, "pit_timing_bonus": 10},
+        "special_flags": ["sc_pit_timing_bonus"],
+        "perception_modifiers": {}
+      },
+      "drawbacks": {
+        "attribute_modifiers": {},
+        "situational_bonuses": {},
+        "special_flags": [],
+        "perception_modifiers": {}
+      },
+      "unlock_requirements": {
+        "branch_xp": {"tire_strategy": 80},
+        "required_nodes": ["safety_car_opportunist"],
+        "required_traits": [],
+        "achievements": [],
+        "min_attributes": {},
+        "conditions": []
+      },
+      "rarity": "uncommon",
+      "flavor_text": "The safety car is my friend.",
+      "icon": "safety_car",
+      "incompatible_traits": [],
+      "is_permanent": true
+    }
+  ]
+}
