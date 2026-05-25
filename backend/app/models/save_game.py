@@ -1,20 +1,38 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field
 
 from app.models.academy import Academy
 from app.models.base import AppModel
 from app.models.calendar import CalendarRound
+from app.models.development_profile import DevelopmentProfile
 from app.models.driver import Driver
-from app.models.race import ActiveRaceState, WeekendResult
+from app.models.interview import InterviewState
+from app.models.race import ActiveRaceState, ActiveWeekendState, WeekendResult
 from app.models.rivalry import Rivalry
+from app.models.sponsorship import SponsorshipState
+from app.models.car_development import TeamDevelopmentState
 from app.models.team import Team
+from app.models.world import WorldState
 
 
 CareerPhase = Literal["preseason", "race_week", "between_races", "offseason"]
+
+# Difficulty preset type (matches player_creation.py)
+DifficultyPreset = Literal["prodigy", "realistic_prospect", "underdog", "brutal_realism"]
+
+
+class F1AdaptationProgress(AppModel):
+    """Tracks player's F1 rookie adaptation progress."""
+
+    f1_races_completed: int = 0
+    adaptation_progress: float = 0.0  # 0-100%
+    current_penalty: float = 0.0  # Effective rating penalty
+    fully_adapted: bool = False
+    first_f1_season: int | None = None  # Season when player entered F1
 
 
 class AcademyState(AppModel):
@@ -91,9 +109,30 @@ class SaveGame(AppModel):
     weekend_results: list[WeekendResult] = Field(default_factory=list)
     f1_weekend_results: list[WeekendResult] = Field(default_factory=list)
     development: DevelopmentState = Field(default_factory=DevelopmentState)
+    team_development: dict[str, TeamDevelopmentState] = Field(default_factory=dict)
+    world_state: WorldState = Field(default_factory=WorldState)
     random_seed: int
-    event_flags: dict[str, bool | str | int | float] = Field(default_factory=dict)
+    event_flags: dict[str, Any] = Field(default_factory=dict)
     active_race: ActiveRaceState | None = None
+    active_weekend: ActiveWeekendState | None = None
+
+    # New development system (coexists with old system during migration)
+    development_profile: DevelopmentProfile | None = None
+
+    # Difficulty preset - determines growth potential and development speed
+    difficulty: DifficultyPreset = "realistic_prospect"
+
+    # F1 rookie adaptation tracking
+    f1_adaptation: F1AdaptationProgress = Field(default_factory=F1AdaptationProgress)
+
+    # Player achievements for cap-breaking bonuses
+    player_achievements: list[str] = Field(default_factory=list)
+
+    # Post-race interview system state
+    interview_state: InterviewState = Field(default_factory=InterviewState)
+
+    # Sponsorship system state
+    sponsorship_state: SponsorshipState | None = None
 
 
 class SaveSummary(AppModel):

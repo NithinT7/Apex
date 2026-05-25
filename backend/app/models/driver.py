@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Literal
 
+from pydantic import Field
+
 from app.models.base import AppModel
+from app.models.perception import PaddockPerception
 
 
 DriverSeries = Literal["F1", "F2", "Reserve", "Other"]
@@ -49,6 +52,13 @@ class CareerStats(AppModel):
     penalties: int = 0
 
 
+class DriverIdentity(AppModel):
+    primary_trait: str | None = None
+    trait_scores: dict[str, int] = Field(default_factory=dict)
+    summary: str = "Profile still forming"
+    last_updated_round: str | None = None
+
+
 class Driver(AppModel):
     id: str
     name: str
@@ -61,6 +71,8 @@ class Driver(AppModel):
     attributes: DriverAttributes
     hidden: HiddenDriverAttributes
     career: CareerStats = CareerStats()
+    identity: DriverIdentity = Field(default_factory=DriverIdentity)
+    paddock_perception: PaddockPerception = Field(default_factory=PaddockPerception)
     current_form: int = 50
     fatigue: int = 0
     morale: int = 50

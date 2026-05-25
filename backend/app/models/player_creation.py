@@ -7,7 +7,11 @@ from app.models.base import AppModel
 from app.models.team import Team
 
 
+# Legacy difficulty (kept for backwards compatibility)
 Difficulty = Literal["casual", "realistic", "brutal"]
+
+# New difficulty presets with proper balancing
+DifficultyPreset = Literal["prodigy", "realistic_prospect", "underdog", "brutal_realism"]
 
 
 class DriverBackground(AppModel):
@@ -42,4 +46,4 @@ class CreateCareerRequest(AppModel):
     archetype_id: str
     team_id: str
     academy_id: str = "academy_independent"
-    difficulty: Difficulty = "realistic"
+    difficulty: DifficultyPreset = "realistic_prospect"
